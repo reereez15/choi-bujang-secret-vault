@@ -1,0 +1,9 @@
+# 제출 묶음 재료와 결과물은 커밋하지 않는다 (AGENTS.md)
+bundle-notes.json
+artifacts/
+
+# 비밀값과 설치물
+.env
+.env.*
+node_modules/
+.vercel/
