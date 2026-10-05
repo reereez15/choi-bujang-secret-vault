@@ -16,37 +16,247 @@
     li { border: 1px solid #51667c; border-radius: 14px; padding: 17px 19px; background: #1a2a3d; }
     strong { display: block; font-size: 18px; margin-bottom: 5px; }
     li span { color: #bfd0e5; }
+    [hidden] { display: none !important; }
+    .auth { margin: 26px 0; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #162536; }
+    .auth-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .auth h2 { margin: 0; font-size: 18px; }
+    .badge { padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; border: 1px solid #51667c; color: #bfd0e5; }
+    .badge[data-state="in"] { color: #0f2a1d; background: #7fe3a8; border-color: #7fe3a8; }
+    .badge[data-state="out"] { color: #ffe3e8; background: #612a3566; border-color: #d07384; }
+    .auth form { display: grid; gap: 10px; margin-top: 14px; }
+    .auth label { display: grid; gap: 4px; font-size: 14px; color: #bfd0e5; }
+    .auth input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #51667c; background: #0f1a28; color: #ecf4ff; }
+    .auth button { font: inherit; font-weight: 700; padding: 10px 14px; border-radius: 10px; border: 0; background: #8ad8df; color: #0b2230; cursor: pointer; }
+    .auth button:disabled { opacity: .6; cursor: default; }
+    .auth-who { margin: 12px 0 10px; font-size: 16px; color: #ecf4ff; word-break: break-all; }
+    .memo { margin: 26px 0 8px; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #162536; }
+    .memo h2 { margin: 0 0 4px; font-size: 18px; }
+    .memo form { display: grid; gap: 10px; margin-top: 12px; }
+    .memo label { display: grid; gap: 4px; font-size: 14px; color: #bfd0e5; }
+    .memo input, .memo textarea { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #51667c; background: #0f1a28; color: #ecf4ff; width: 100%; box-sizing: border-box; }
+    .memo textarea { resize: vertical; }
+    .memo button, li button { font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 10px; border: 0; background: #8ad8df; color: #0b2230; cursor: pointer; }
+    li button.quiet { background: #2b3f55; color: #ecf4ff; }
+    li button.danger { background: #d07384; color: #2a0d14; }
+    li button:disabled, .memo button:disabled { opacity: .6; cursor: default; }
+    .hint { margin: 10px 0 0; font-size: 14px; color: #9fb3c8; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    li form { display: grid; gap: 10px; }
+    li input, li textarea { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid #51667c; background: #0f1a28; color: #ecf4ff; width: 100%; box-sizing: border-box; }
+    li span { white-space: pre-wrap; word-break: break-word; }
+    .auth-message { margin: 12px 0 0; font-size: 15px; color: #bfd0e5; }
+    .auth-message[data-kind="error"] { color: #ffb4c0; }
+    .auth-message[data-kind="ok"] { color: #7fe3a8; }
   </style>
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 2단계 자료를 코드 밖으로</div>
+    <div class="eyebrow">BYTE BACK · 3단계 진짜 로그인</div>
     <h1>점령된 자료실</h1>
-    <p>자료는 이제 저장소 파일이 아니라 서버 함수가 DB에서 읽어 옵니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
-    <div class="notice">아직 서버 함수 주소(/api/notes)는 로그인 없이 누구나 부를 수 있습니다. 다음 제작 단계에서 접근을 막아 주세요.</div>
-    <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
+    <p>메모는 서버 함수가 DB에서 읽고 씁니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
+    <div class="notice">로그인한 사용자만 가상 메모를 보고 추가·수정·삭제할 수 있습니다. 아직 서버가 소유자를 검사하지 않아서, 로그인한 다른 사람도 메모의 id만 알면 고칠 수 있습니다. 4단계에서 막을 예정입니다.</div>
+    <section class="auth" id="auth" aria-live="polite">
+      <div class="auth-head">
+        <h2>로그인</h2>
+        <span class="badge" data-auth-badge data-state="out">로그아웃 상태</span>
+      </div>
+      <form data-auth-form novalidate>
+        <label>이메일
+          <input type="email" data-auth-email autocomplete="username" inputmode="email">
+        </label>
+        <label>비밀번호
+          <input type="password" data-auth-password autocomplete="current-password">
+        </label>
+        <button type="submit" data-auth-submit>로그인</button>
+      </form>
+      <div data-auth-signed-in hidden>
+        <p class="auth-who" data-auth-who></p>
+        <button type="button" data-auth-logout>로그아웃</button>
+      </div>
+      <p class="auth-message" data-auth-message>로그인 상태를 확인하는 중입니다.</p>
+    </section>
+    <section class="memo" id="memo" hidden>
+      <h2>가상 메모</h2>
+      <form data-memo-form novalidate>
+        <label>제목
+          <input type="text" data-memo-title maxlength="120" autocomplete="off">
+        </label>
+        <label>내용
+          <textarea data-memo-body rows="3" maxlength="2000"></textarea>
+        </label>
+        <button type="submit" data-memo-submit>메모 추가</button>
+      </form>
+      <p class="hint">실제 개인정보나 비밀값은 적지 마세요. 가상 메모만 씁니다.</p>
+      <p class="auth-message" data-memo-message aria-live="polite"></p>
+    </section>
+    <ul id="notes" aria-live="polite"><li>로그인하면 가상 메모가 보입니다.</li></ul>
   </main>
+  <script src="/vendor/supabase.js"></script>
   <script type="module">
+    import { AUTH_CONFIG } from '/auth-config.js';
+    import { mountAuthPanel } from '/auth.js';
+
     const list = document.querySelector('#notes');
-    try {
-      const response = await fetch('/api/notes', { cache: 'no-store' });
-      if (!response.ok) throw new Error('자료를 읽을 수 없습니다.');
-      const data = await response.json();
-      if (!Array.isArray(data.notes)) throw new Error('자료 형식이 맞지 않습니다.');
-      list.replaceChildren(...data.notes.map(note => {
-        const item = document.createElement('li');
-        const title = document.createElement('strong');
-        const content = document.createElement('span');
-        title.textContent = note.title;
-        content.textContent = note.content;
-        item.append(title, content);
-        return item;
-      }));
-    } catch (error) {
+    const memo = document.querySelector('#memo');
+    const form = memo.querySelector('[data-memo-form]');
+    const titleInput = memo.querySelector('[data-memo-title]');
+    const bodyInput = memo.querySelector('[data-memo-body]');
+    const submitButton = memo.querySelector('[data-memo-submit]');
+    const message = memo.querySelector('[data-memo-message]');
+
+    let currentSession = null;
+    let loadId = 0;
+
+    const setMessage = (text, kind = 'info') => {
+      message.textContent = text;
+      message.dataset.kind = kind;
+    };
+    const showList = (text) => {
       const item = document.createElement('li');
-      item.textContent = error.message;
+      item.textContent = text;
       list.replaceChildren(item);
+    };
+    const reason = (error) => {
+      if (error.status === 401) return '로그인을 확인하지 못했습니다. 다시 로그인하세요.';
+      if (error.status === 404) return '이미 없는 메모입니다.';
+      if (error.status === 400) return '입력을 확인하세요. 제목은 꼭 있어야 합니다.';
+      return '요청을 처리하지 못했습니다. 잠시 뒤 다시 시도하세요.';
+    };
+
+    // 로그인 토큰은 SDK가 준 값을 Authorization 헤더로만 보낸다. 사용자 번호나 역할은 보내지 않는다.
+    async function api(path, { method = 'GET', payload } = {}) {
+      const session = currentSession;
+      if (!session?.access_token) throw Object.assign(new Error('no_session'), { status: 401 });
+      const response = await fetch(path, {
+        method,
+        cache: 'no-store',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          ...(payload ? { 'Content-Type': 'application/json' } : {}),
+        },
+        body: payload ? JSON.stringify(payload) : undefined,
+      });
+      if (!response.ok) throw Object.assign(new Error('api_error'), { status: response.status });
+      return response.json();
     }
+
+    function button(label, className, onClick) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.textContent = label;
+      if (className) el.className = className;
+      el.addEventListener('click', onClick);
+      return el;
+    }
+
+    function noteItem(note) {
+      const item = document.createElement('li');
+      const renderView = () => {
+        const title = document.createElement('strong');
+        const body = document.createElement('span');
+        title.textContent = note.title;
+        body.textContent = note.body;
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        actions.append(
+          button('수정', 'quiet', renderEdit),
+          button('삭제', 'danger', async (event) => {
+            if (!window.confirm('이 메모를 삭제할까요?')) return;
+            event.currentTarget.disabled = true;
+            try {
+              await api(`/api/notes/${note.id}`, { method: 'DELETE' });
+              setMessage('삭제했습니다.', 'ok');
+            } catch (error) {
+              setMessage(reason(error), 'error');
+            }
+            await loadNotes();
+          }),
+        );
+        item.replaceChildren(title, body, actions);
+      };
+      const renderEdit = () => {
+        const editForm = document.createElement('form');
+        const title = document.createElement('input');
+        const body = document.createElement('textarea');
+        title.value = note.title;
+        title.maxLength = 120;
+        body.value = note.body;
+        body.rows = 3;
+        body.maxLength = 2000;
+        const save = document.createElement('button');
+        save.type = 'submit';
+        save.textContent = '저장';
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        actions.append(save, button('취소', 'quiet', () => renderView()));
+        editForm.append(title, body, actions);
+        editForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!title.value.trim()) { setMessage('제목을 입력하세요.', 'error'); return; }
+          save.disabled = true;
+          try {
+            await api(`/api/notes/${note.id}`, { method: 'PUT', payload: { title: title.value, body: body.value } });
+            setMessage('수정했습니다.', 'ok');
+            await loadNotes();
+          } catch (error) {
+            setMessage(reason(error), 'error');
+            save.disabled = false;
+          }
+        });
+        item.replaceChildren(editForm);
+        title.focus();
+      };
+      renderView();
+      return item;
+    }
+
+    async function loadNotes() {
+      const id = ++loadId;
+      try {
+        const notes = await api('/api/notes');
+        if (id !== loadId) return;
+        if (!Array.isArray(notes)) throw new Error('bad_shape');
+        if (!notes.length) showList('아직 메모가 없습니다. 위에서 추가해 보세요.');
+        else list.replaceChildren(...notes.map(noteItem));
+      } catch (error) {
+        if (id === loadId) showList(error.status ? reason(error) : '자료 형식이 맞지 않습니다.');
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!titleInput.value.trim()) { setMessage('제목을 입력하세요.', 'error'); return; }
+      submitButton.disabled = true;
+      try {
+        await api('/api/notes', { method: 'POST', payload: { title: titleInput.value, body: bodyInput.value } });
+        titleInput.value = '';
+        bodyInput.value = '';
+        setMessage('추가했습니다.', 'ok');
+        await loadNotes();
+      } catch (error) {
+        setMessage(reason(error), 'error');
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    // 로그인·로그아웃으로 사용자가 바뀔 때만 목록을 다시 불러온다. 토큰 갱신으로는 편집 중인 화면을 지우지 않는다.
+    function onSession(session) {
+      const before = currentSession?.user?.id ?? null;
+      currentSession = session;
+      const signedIn = Boolean(session?.access_token);
+      memo.hidden = !signedIn;
+      if (!signedIn) {
+        loadId += 1;
+        setMessage('');
+        showList('로그인하면 가상 메모가 보입니다.');
+        return;
+      }
+      if (session.user?.id !== before) loadNotes();
+    }
+
+    mountAuthPanel({ root: document.querySelector('#auth'), config: AUTH_CONFIG,
+      sdk: globalThis.supabase, onSession });
   </script>
 </body>
 </html>

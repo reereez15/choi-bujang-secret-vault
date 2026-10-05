@@ -7,3 +7,6 @@ artifacts/
 .env.*
 node_modules/
 .vercel/
+
+# 빌드가 복사하는 공식 SDK 번들 (커밋하지 않음)
+public/vendor/
