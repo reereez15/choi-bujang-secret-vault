@@ -2,43 +2,52 @@
 
 이 저장소는 1단계에서 학생 본인이 GitHub 저장소와 Vercel 배포를 만드는 출발점입니다. 시작 틀에 들어 있던 메모 네 건은 가상 자료이며 2단계에서 DB로 옮겼습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
-## 현재 상태: 4단계 「로그인해도 내 자료만 보이게 합니다」
+## 현재 상태: 5단계 「자료 요청을 서버 한곳으로 모읍니다」
 
 **지금 작동하는 기능**
-- 로그인 화면(`public/index.html`, `public/auth.js`)이 Supabase Auth 이메일·비밀번호 로그인과 로그아웃을 합니다. 비밀번호와 토큰은 공식 SDK(`/vendor/supabase.js`, 빌드가 `node_modules`에서 복사)만 다루고, 화면 코드에는 공개용(publishable) 키와 Project URL만 `public/auth-config.js`에 둡니다. 서버 전용 키로 보이면 화면이 SDK를 만들지 않고 거부합니다.
-- 로그인한 사용자는 **자기** 가상 메모를 추가·수정·삭제합니다. 로그아웃하면 추가 창과 목록이 사라집니다.
+- 자료 요청은 **화면 → 서버 함수(`/api/notes`) → DB** 한 길로만 갑니다. 로그인도 같은 서버를 거칩니다. **브라우저 코드(`public/`)에는 Supabase 키도, Supabase SDK도, 프로젝트 주소도 없고**(시험이 이 상태를 고정합니다), 화면의 요청은 모두 같은 서버의 `/api/notes*`와 `/api/auth/*`입니다.
+- 로그인 화면(`public/index.html`, `public/auth.js`)은 이메일·비밀번호를 서버 함수 `POST /api/auth/login`에 보냅니다. 서버가 Supabase Auth에 대신 로그인하고(공식 SDK는 서버에서만 씁니다) 세션(`access_token`, `refresh_token`, `expires_at`, 사용자 id·이메일)만 돌려줍니다. 화면은 그 세션을 **이 탭의 sessionStorage**에만 두고(탭을 닫으면 사라지고 새로고침하면 유지됩니다), 만료 1분 전에 `POST /api/auth/refresh`로 갱신하며, 로그아웃하면 저장된 세션을 지우고 `POST /api/auth/logout`으로 서버의 세션도 끝냅니다. 비밀번호는 서버로 보내기만 하고 저장하지 않으며 응답·로그에 되돌려 쓰지 않습니다. 로그인 실패 이유(이메일·비밀번호 불일치, 인증 미완료, 요청 과다, 서버 연결 실패 등)는 화면에 보입니다.
 - 자료 API(Vercel 서버 함수 `api/notes.js`, `api/notes/[id].js`, 본체 `src/notes-handler.mjs`와 `src/notes-store.mjs`):
-  - `GET /api/notes`는 로그인 사용자 **본인** 메모의 배열 `[{id,title,body}]`, `POST /api/notes`는 `{id?,title,body}`를 받아 `{id}`를 돌려줍니다(id가 없으면 서버가 만듭니다).
+  - `GET /api/notes`는 로그인 사용자 **본인** 메모의 배열 `[{id,title,body}]`, `POST /api/notes`는 `{id?,title,body}`를 받아 `{id}`를 돌려줍니다.
   - `GET·PUT·DELETE /api/notes/:id`는 한 건 조회 `{id,title,body}`, 수정 `{title,body}`, 삭제입니다. 지운 뒤 GET은 404입니다.
   - 모든 요청은 DB에 닿기 전에 틀의 `src/verify-login.mjs`로 `Authorization` 토큰을 검사합니다. 토큰이 없거나 검사에 실패하면 자료 없이 401입니다.
-  - **소유자 검사:** 한 건 GET·PUT·DELETE는 DB의 `owner_id`가 검증된 사용자 ID와 같을 때만 처리합니다. 남의 메모는 없는 메모와 똑같이 404로 답해서 그 id가 있는지도 알려 주지 않습니다. 수정은 기존 행의 소유자가 본인인지 확인하고 새 값에는 `owner_id`를 쓰지 않으며, 수정·삭제의 DB 쿼리에도 `owner_id` 조건을 함께 겁니다. 수정 본문에 내 ID가 아닌 `owner_id`를 담으면 403(`owner_change_forbidden`)으로 요청 전체를 거부합니다.
-  - 추가할 때는 본문이나 URL의 `owner_id`·`userId`·`role`을 읽지 않고 검사로 확인된 사용자 ID를 `owner_id`로 저장합니다.
-  - 메모의 `body`는 DB의 `content` 칸에 저장합니다.
-- `aleph.config.json`은 `step` 4이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`)를 구현과 맞춰 적었습니다.
-- 서버 함수는 `SUPABASE_URL`과 서버 전용 `SUPABASE_SECRET_KEY`를 **Vercel 환경변수**에서만 읽습니다. 두 값은 Vercel 프로젝트 Settings → Environment Variables 입력란에 직접 넣고(키는 Sensitive로), 코드·Git·채팅·로그에는 쓰지 않습니다.
-- **DB 권한(두 번째 방어선):** 테이블 `vault_notes`는 RLS가 켜져 있고 정책이 네 개입니다. `authenticated`만 `SELECT`·`INSERT`·`UPDATE`·`DELETE` 권한을 갖고, 정책은 모두 `auth.uid() = owner_id`일 때만 허용합니다(SELECT·DELETE는 기존 행, INSERT는 새 행, UPDATE는 기존 행과 새 행 모두). `anon`과 `PUBLIC`에는 권한이 없습니다. 서버 함수가 쓰는 `service_role`은 RLS를 건너뛰고 권한을 그대로 갖습니다. 테이블과 권한을 만든 SQL 파일은 가상 메모 문장이 들어 있어 이 저장소에 두지 않았습니다.
+  - 소유자 검사: 한 건 요청은 DB의 `owner_id`가 검증된 사용자 ID와 같을 때만 처리하고, 남의 메모는 없는 메모와 같은 404입니다. 수정 본문에 내 ID가 아닌 `owner_id`가 있으면 403으로 거부합니다. 추가할 때 `owner_id`는 검증된 ID로만 저장합니다.
+- **DB 직접 접근 차단:** 테이블 `vault_notes`에서 `PUBLIC`·`anon`·`authenticated`의 직접 권한(열 단위 포함)을 모두 회수했습니다. 서버 함수가 쓰는 서버 전용 키의 역할 `service_role`만 읽기·추가·수정·삭제 권한을 갖습니다. RLS는 켜져 있고 정책 네 개(`auth.uid() = owner_id`)도 그대로 두었지만, 권한이 없어서 지금은 쓰이지 않고 나중에 실수로 권한이 열려도 한 번 더 막는 장치입니다. 테이블과 권한을 만든 SQL 파일은 가상 메모 문장이 들어 있어 이 저장소에 두지 않았습니다.
+- **원본 자료 API 주소:** `aleph.config.json`의 `originalApiUrl`은 Supabase Data API의 메모 테이블 주소(`…/rest/v1/vault_notes`)이고 쿼리·해시·인증 정보가 없습니다. 이 주소를 공개용(anon) 키나 로그인 토큰으로 직접 부르면 `401`/`403`과 `permission denied`(코드 42501)로 거부됩니다. 배포할 때 빌드가 만드는 `/aleph.json`(배포 식별 파일)에도 5단계부터 같은 `originalApiUrl`이, 3단계부터 `allowedRoutes`(허용 경로 여덟 개)가 들어가고, 값이 없거나 모양이 틀리면 빌드가 멈춥니다. 심판은 배포된 `/aleph.json`에서 이 값들을 읽습니다.
+- `aleph.config.json`은 `step` 5이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
+- 서버 함수는 `SUPABASE_URL`, 로그인에 쓰는 공개용(publishable) 키 `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`를 **Vercel 환경변수**에서만 읽습니다. 세 값은 Vercel 프로젝트 Settings → Environment Variables 입력란에 직접 넣고(키는 Sensitive로), 코드·Git·채팅·로그·브라우저 파일에는 쓰지 않습니다. `SUPABASE_PUBLISHABLE_KEY`가 없으면 로그인이 `server_not_configured`로 실패하고 화면에 "로그인 서버 설정이 아직 없습니다"가 보입니다.
 - `data.json`과 `public/data.json`은 `{ "notes": [] }`입니다. 배포된 `/data.json`에는 메모가 없습니다.
+- 첫 화면을 포함한 모든 응답에 `vercel.json`의 `headers`로 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`를 붙입니다. 서버 함수 응답에는 코드가 `nosniff`를 따로 붙입니다. 화면의 인라인 스크립트와 스타일 때문에 `Content-Security-Policy`는 아직 쓰지 않습니다.
 
 **다시 실행하는 방법**
-- 로컬 시험: `npm ci` 다음 `npm run test:r5`. 가짜 로그인과 가짜 DB로 하는 연습이며 실제 DB 연결이나 배포를 증명하지 않습니다.
-- 배포 확인: 시크릿 창에서 짧은 주소를 열어 A로 로그인하면 A의 메모만, B로 로그인하면 B의 메모만 보이는지, 로그인 없이 `/api/notes`를 직접 열면 `unauthorized`로 거부되는지 봅니다. 상대 메모의 id로 읽기·수정·삭제를 보내면 404가 나와야 합니다.
-- DB 확인: 로그인한 브라우저 Console에서 Supabase Data API(`…/rest/v1/vault_notes`)를 공개용 키와 로그인 토큰으로 직접 불러, 로그인 없이는 `permission denied`(401), 로그인하면 본인 행만 오는지 봅니다.
-- 자기 점검: `npm run bundle`의 `src/attack-check.mjs`가 로그인 없는 GET·POST·PUT·DELETE, 위조한 토큰, `/data.json`, 응답의 키 노출 여부를 실제로 요청해 결과만 기록합니다. 상대 메모 접근과 소유자 변경 점검은 서로 다른 두 사용자의 실제 로그인 토큰이 있어야 보낼 수 있어서, 환경변수 `ATTACK_CHECK_TOKEN`(A)과 `ATTACK_CHECK_TOKEN_B`(B)가 둘 다 있을 때만 실행합니다. 이때 A의 임시 메모를 만들고 점검이 끝나면 지웁니다. 토큰이 없거나 배포 서버에 닿지 못한 점검은 "미실행"으로 적고, 토큰 값은 어디에도 적지 않습니다. 심판의 판정이 아닙니다.
+- 로컬 시험: `npm ci` 다음 `npm run test:r5`. 가짜 로그인과 가짜 DB로 하는 연습이며 실제 DB 연결이나 배포를 증명하지 않습니다. (Windows PowerShell에서 `npm`이 막히면 `npm.cmd`를 씁니다.)
+- 배포 전 한 번: Vercel 환경변수에 `SUPABASE_PUBLISHABLE_KEY`(Supabase 대시보드의 Publishable key)를 넣고 다시 배포합니다. 값은 저장소·채팅에 쓰지 않습니다.
+- 배포 확인: 시크릿 창에서 `짧은주소/aleph.json`을 열어 `commit`이 방금 푸시한 커밋이고 `allowedRoutes`와 `originalApiUrl`(`https://…/rest/v1/vault_notes`)이 들어 있는지 보고, 첫 화면의 응답 헤더에 `x-content-type-options: nosniff`가 있는지 보고, A로 로그인해 메모를 추가·수정·삭제하고, B로 로그인하면 B의 메모만 보이는지, 로그인 없이 `/api/notes`를 열면 `unauthorized`인지 봅니다.
+- DB 권한 확인(Supabase SQL Editor, 하나씩 실행): `information_schema.role_table_grants`에서 `vault_notes`의 `PUBLIC`·`anon`·`authenticated` 줄이 없는지, `has_table_privilege`와 `has_any_column_privilege`가 `anon`·`authenticated`에서 모두 `false`인지, `pg_policies`가 4개이고 RLS가 켜져 있는지 봅니다.
+- 원본 직접 호출 확인(브라우저 Console): 브라우저 코드에는 키가 없으므로 Supabase 대시보드의 공개용 키를 Console에서만 잠깐 써서 `…/rest/v1/vault_notes`를 부릅니다. 로그인 없이는 `401`, 이 탭의 로그인 토큰(`sessionStorage`의 `vault.session`)을 붙여도 `403`과 `42501`이 나와야 합니다.
+- 자기 점검: `npm run bundle`의 `src/attack-check.mjs`가 로그인 없는 요청, 위조 토큰, `/data.json`, 응답의 키 노출, 원본 자료 API 직접 요청(anon 키로 GET·POST·PATCH·DELETE)을 실제로 보내 결과만 기록합니다. 쓰기 점검은 저장되지 않는 빈 본문이나 없는 id만 써서 데이터를 바꾸지 않습니다. 원본 자료 API 점검에 쓸 공개용 키는 저장소에 없으므로 환경변수 `ATTACK_CHECK_ANON_KEY`로 받습니다. 로그인 사용자 요청과 상대 메모 접근·소유자 변경 점검은 환경변수 `ATTACK_CHECK_TOKEN`(A)과 `ATTACK_CHECK_TOKEN_B`(B)가 있을 때만 보내고, 토큰이 없거나 배포 서버에 닿지 못한 점검은 "미실행"으로 적습니다. 토큰 값은 어디에도 적지 않습니다. 심판의 판정이 아닙니다.
 
 **알려진 약점 (아직 남아 있음)**
+- 서버 함수가 자료로 가는 **유일한 통로이자 유일한 소유자 검사 지점**입니다. 서버 함수는 RLS를 건너뛰는 `service_role`로 접근하므로 DB의 소유자 정책은 이 경로에 적용되지 않습니다. 서버 코드의 소유자 검사에 오류가 생기면 DB가 대신 막아 주지 못합니다. 서버 전용 키가 새면 RLS와 상관없이 모든 메모를 읽을 수 있으므로, 키는 Vercel 환경변수에만 둡니다.
+- 로그인 비밀번호가 우리 서버 함수를 지나갑니다. 서버는 비밀번호를 저장하거나 기록하지 않고 Supabase Auth로 넘기기만 하지만, 이 함수가 오작동하거나 공격받으면 영향을 받습니다. 로그인 시도 횟수 제한은 Supabase Auth의 제한에 맡기고, 이 함수에는 따로 두지 않았습니다.
 - 메모를 다른 사용자와 공유하는 기능은 없습니다. 메모는 만든 사람 한 명만 다룹니다. 의도한 동작입니다.
 - 이미 쓰인 id로 메모를 추가하면 409(`id_exists`)가 나옵니다. 남의 메모 id로 시도해도 같은 응답이라 "그 id가 존재한다"는 사실은 알 수 있습니다. 내용을 읽거나 덮어쓸 수는 없습니다.
-- 2단계에서 넣은 가상 메모 네 건은 A 계정에, 시험 메모 한 건은 B 계정에 `owner_id`로 연결했습니다. 소유자가 비어 있는 메모는 없습니다.
-- 로그인 토큰은 공식 SDK가 브라우저 저장소에 보관합니다(SDK 기본 동작). 페이지에 악성 스크립트가 실행되면 토큰이 노출될 수 있어서, 이 화면은 서버에서 받은 글을 `textContent`로만 그리고 외부 스크립트를 쓰지 않습니다.
+- 원본 자료 API 주소(`…/rest/v1/vault_notes`) 자체는 인터넷에서 열려 있고, 요청은 권한 오류로 거부될 뿐입니다. 이 표의 이름과 위치가 공개 저장소에 적혀 있습니다.
+- 로그인 세션(리프레시 토큰 포함)을 이 화면의 코드가 `sessionStorage`에 직접 보관합니다. 페이지에 악성 스크립트가 실행되면 읽힐 수 있어서, 이 화면은 서버에서 받은 글을 `textContent`로만 그리고 외부 스크립트를 쓰지 않으며, 탭을 닫으면 세션이 사라지게 했습니다.
 - 지난 커밋과 옛 배포의 긴 주소(`…-해시-계정.vercel.app`)에는 1단계의 가상 메모가 남아 있습니다. 지금 파일을 바꿔도 이 이력은 지워지지 않습니다.
 
-**4단계 확인 기록 (2026-10-06, 직접 확인한 것만 적었습니다)**
-- DB에서 기존 가상 메모 네 건은 A 계정의 `owner_id`로, 시험 메모 한 건은 B 계정의 `owner_id`로 연결됐고 소유자가 없는 행은 0건임을 SQL Editor 조회로 확인했습니다.
-- B로 로그인한 상태에서 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404 {error: not_found}`였고, A 화면에서 네 건이 그대로 남아 있었습니다.
-- 화면에서 A는 네 건, B는 "B의 시험 메모" 한 건만 보였습니다.
-- DB 권한 적용 전후 `information_schema.role_table_grants`, `has_table_privilege`, 원본 ACL, RLS·정책 수를 대조했습니다. 적용 전에는 `anon`·`authenticated` 권한이 없고 정책이 0개, 적용 후에는 `anon` 권한 없음, `authenticated`는 `SELECT`·`INSERT`·`UPDATE`·`DELETE`만, 정책 4개, `service_role`은 변화 없음이었습니다. 적용 뒤에도 앱 화면은 A·B 모두 정상이었습니다.
-- Data API를 직접 불러 로그인 없이는 `401`과 `permission denied for table vault_notes`(코드 42501), A로 로그인하면 네 행 모두 A의 `owner_id`, B로 로그인하면 B의 한 행뿐이었습니다. B가 A의 메모를 PATCH·DELETE로 직접 건드렸을 때 둘 다 빈 배열(바뀐 행 0건)이었습니다.
-- 소유자 변경(403)과 상대 메모 추가 시도의 배포 확인은 **미실행**입니다. 로컬 시험과 가짜 DB 시나리오로만 확인했고, 두 토큰을 넘긴 `npm run bundle`이 배포에서 확인합니다.
+**5단계 확인 기록 (2026-10-06, 직접 확인한 것만 적었습니다)**
+- 브라우저 코드에는 Supabase 직접 자료 호출(`.from(`, `.rpc(`, `/rest/v1`, storage, realtime)이 없음을 검색으로 확인했고, 이를 시험으로 고정했습니다.
+- DB 권한을 회수하기 전에 A 계정으로 추가·수정·삭제가 되는 것을 배포 화면에서 확인했습니다. 회수 전후 `role_table_grants`, `has_table_privilege`, `has_any_column_privilege`, 원본 ACL, RLS·정책 수를 대조했습니다. 회수 전에는 `authenticated`에 `SELECT`·`INSERT`·`UPDATE`·`DELETE`가 있었고, 회수 후에는 `PUBLIC`·`anon`·`authenticated` 권한이 모두 없고 `service_role`과 RLS(켜짐)·정책 4개는 그대로였습니다.
+- 회수 뒤에도 배포 화면에서 A의 추가·수정·삭제가 이전과 똑같이 동작했습니다.
+- 로그인한 브라우저 Console에서 원본 자료 API를 공개용 키로 직접 불러, 로그인 없이는 `401`, 로그인 토큰을 붙여도 `403`이고 둘 다 `permission denied for table vault_notes`(코드 42501)였습니다. 4단계에서는 로그인하면 본인 행이 돌아왔습니다.
+- 심판이 지적한 조건(`/aleph.json`의 `originalApiUrl`·`allowedRoutes`, 첫 화면의 보안 헤더)은 고친 뒤 배포된 `/aleph.json`과 응답 헤더로 확인했습니다.
+- 화면 코드에서 공개 키를 없애고 로그인을 서버 함수로 옮긴 변경은 로컬 시험과 가짜 인증 서버로만 확인했고, 실제 배포에서의 로그인·새로고침·로그아웃은 이 README를 쓴 시점에 **미실행**입니다. `npm run bundle`의 점검 결과도 제출 묶음의 `attackAttempts`에 따로 적힙니다.
+
+**4단계 당시 확인 기록 (2026-10-06)**
+- 기존 가상 메모 네 건은 A 계정, 시험 메모 한 건은 B 계정의 `owner_id`로 연결했고 소유자가 없는 행은 0건입니다.
+- B로 로그인해 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404`였고 A의 메모는 그대로였습니다. 화면에서 A는 네 건, B는 한 건만 보였습니다.
+- 소유자 변경(403) 거부는 `attack-check`가 배포에서 확인했습니다(두 사용자 토큰을 넘겨 실행한 결과).
 
 ## 가상 메모 노출 확인 절차 (2단계)
 

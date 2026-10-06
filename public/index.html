@@ -91,9 +91,7 @@
     </section>
     <ul id="notes" aria-live="polite"><li>로그인하면 가상 메모가 보입니다.</li></ul>
   </main>
-  <script src="/vendor/supabase.js"></script>
   <script type="module">
-    import { AUTH_CONFIG } from '/auth-config.js';
     import { mountAuthPanel } from '/auth.js';
 
     const list = document.querySelector('#notes');
@@ -255,8 +253,7 @@
       if (session.user?.id !== before) loadNotes();
     }
 
-    mountAuthPanel({ root: document.querySelector('#auth'), config: AUTH_CONFIG,
-      sdk: globalThis.supabase, onSession });
+    mountAuthPanel({ root: document.querySelector('#auth'), onSession });
   </script>
 </body>
 </html>

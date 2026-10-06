@@ -176,11 +176,77 @@ async function runOwnerChecks(app) {
   return OWNER_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: observed[attackId] }));
 }
 
+// 5단계: 원본 자료 API(Supabase Data API의 메모 테이블)를 앱 밖에서 직접 부른다. 공개용(anon) 키만 쓰고 서버 전용 키는 쓰지 않는다.
+// 쓰기 점검은 데이터가 바뀌지 않게 만든다: 추가는 필수 칸이 빠진 빈 본문이라 허용돼도 저장되지 않고, 수정·삭제는 없는 id만 가리킨다.
+const ORIGINAL_CHECKS = [
+  ['original_api_anon_read', '로그인 없이(anon 키만) 원본 자료 API를 쿼리 없이 GET으로 부르면 메모 없이 401 또는 403으로 거부됨'],
+  ['original_api_anon_insert', 'anon 키로 원본 자료 API에 POST(추가)하면 만들지 않고 401 또는 403으로 거부됨'],
+  ['original_api_anon_modify', 'anon 키로 원본 자료 API에 PATCH(수정)와 DELETE(삭제)를 보내면 둘 다 401 또는 403으로 거부됨'],
+  ['original_api_user_read', '정상 로그인 토큰(A)을 붙여도 원본 자료 API를 직접 GET으로 부르면 메모 없이 401 또는 403으로 거부됨'],
+];
+
+async function runOriginalApiChecks(config) {
+  const url = config.originalApiUrl;
+  if (typeof url !== 'string' || !url.startsWith('https://')) {
+    throw new Error('aleph.config.json의 originalApiUrl에 원본 자료 API의 HTTPS 주소를 넣어 주세요.');
+  }
+  const original = new URL(url);
+  if (original.search || original.hash || original.username || original.password) {
+    throw new Error('originalApiUrl은 쿼리·해시·인증 정보가 없는 주소여야 합니다.');
+  }
+  // 이 저장소와 브라우저 코드에는 Supabase 키가 없다. anon 점검에 쓸 공개용 키는 환경변수로만 받고 어디에도 적지 않는다.
+  const key = process.env.ATTACK_CHECK_ANON_KEY;
+  const skip = (reason) => ORIGINAL_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: `미실행: ${reason}` }));
+  if (typeof key !== 'string' || !key.trim()) {
+    return skip('anon 점검에 쓸 공개용 키가 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_ANON_KEY 없음).');
+  }
+  if (key.startsWith('sb_secret_')) return skip('서버 전용 키로 보여 보내지 않았습니다. 공개용(publishable) 키를 넣어 주세요.');
+  const json = { 'content-type': 'application/json' };
+  const verdict = (result) => {
+    if (result.unreached) return null;
+    const rows = Array.isArray(result.data) ? result.data.length : 0;
+    return { status: result.response.status, rows,
+      denied: (result.response.status === 401 || result.response.status === 403) && rows === 0,
+      code: typeof result.data?.code === 'string' && /^[A-Za-z0-9_]{1,12}$/u.test(result.data.code) ? result.data.code : null };
+  };
+  const describe = (item, result) => (result.unreached ? notReached(result)
+    : `${item.denied ? '거부됨' : '거부되지 않음'} (HTTP ${item.status}${item.code ? `, 코드 ${item.code}` : ''}${item.rows ? `, 메모 ${item.rows}건이 응답됨` : ''})`);
+
+  const read = await attempt(original, url, { headers: { apikey: key } });
+  const insert = await attempt(original, url, { method: 'POST', headers: { apikey: key, ...json, prefer: 'return=minimal' }, body: '{}' });
+  const target = `${url}?id=eq.${randomUUID()}`;
+  const patch = await attempt(original, target, { method: 'PATCH', headers: { apikey: key, ...json, prefer: 'return=minimal' },
+    body: JSON.stringify({ title: 'attack-check' }) });
+  const remove = await attempt(original, target, { method: 'DELETE', headers: { apikey: key, prefer: 'return=minimal' } });
+  const results = [
+    ['original_api_anon_read', read],
+    ['original_api_anon_insert', insert],
+  ].map(([attackId, result]) => ({ attackId, expected: ORIGINAL_CHECKS.find(([id]) => id === attackId)[1],
+    observed: describe(verdict(result) ?? {}, result) }));
+  const modify = [patch, remove];
+  const unreached = modify.find((result) => result.unreached);
+  const parts = modify.map((result) => verdict(result));
+  results.push({ attackId: 'original_api_anon_modify', expected: ORIGINAL_CHECKS[2][1],
+    observed: unreached ? notReached(unreached)
+      : `${parts.every((part) => part.denied) ? '거부됨' : '거부되지 않음'} (PATCH HTTP ${parts[0].status}${parts[0].code ? `, 코드 ${parts[0].code}` : ''}; DELETE HTTP ${parts[1].status}${parts[1].code ? `, 코드 ${parts[1].code}` : ''})` });
+
+  const token = process.env.ATTACK_CHECK_TOKEN;
+  if (!token) {
+    results.push({ attackId: 'original_api_user_read', expected: ORIGINAL_CHECKS[3][1],
+      observed: '미실행: 로그인 사용자 요청은 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN 없음).' });
+  } else {
+    const user = await attempt(original, url, { headers: { apikey: key, authorization: `Bearer ${token}` } });
+    results.push({ attackId: 'original_api_user_read', expected: ORIGINAL_CHECKS[3][1], observed: describe(verdict(user) ?? {}, user) });
+  }
+  return results;
+}
+
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   const app = publicApp(config);
   if (config.step === 3) return runStepThree(config, app);
   if (config.step === 4) return [...await runStepThree(config, app), ...await runOwnerChecks(app)];
+  if (config.step === 5) return [...await runStepThree(config, app), ...await runOwnerChecks(app), ...await runOriginalApiChecks(config)];
   const staticResponse = await request(app, '/data.json');
   const { data: staticData } = await readBody(staticResponse);
   const staticVisible = staticData?.sampleMarker === config.sampleMarker
