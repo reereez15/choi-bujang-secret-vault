@@ -9,8 +9,10 @@ import { createLoginVerifier } from './verify-login.mjs';
 // 모든 요청은 자료에 닿기 전에 Authorization 토큰을 틀의 src/verify-login.mjs로 검사한다.
 // 브라우저가 보낸 userId·owner_id·role·쿼리 값은 신원으로 쓰지 않고, 검사 결과의 userId만 쓴다.
 //
-// 알려진 약점(4단계에서 고칠 예정): 메모 한 건 GET·PUT·DELETE는 아직 소유자를 검사하지 않는다.
-// 로그인한 사람이면 id만 알아도 다른 사람의 메모를 읽고 고치고 지울 수 있다.
+// 소유자 검사: 한 건 GET·PUT·DELETE는 DB의 owner_id가 검증된 사용자 ID와 같을 때만 처리한다.
+// 남의 메모는 없는 메모와 똑같이 404로 답해서 id가 존재하는지도 알려 주지 않는다.
+// 수정은 기존 행의 소유자가 본인인지 확인하고, 새 값에는 owner_id를 쓰지 않아 소유자가 바뀌지 않는다.
+// 본문에 다른 사람의 owner_id를 담아 보내면 소유자 변경 시도로 보고 403으로 거부한다.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const TITLE_MAX = 120;
 const BODY_MAX = 2000;
@@ -124,28 +126,38 @@ export function createNotesApi({
     return res.status(201).json({ id });
   });
 
-  // /api/notes/:id : GET 한 건, PUT 수정, DELETE 삭제
-  const item = guarded(['GET', 'PUT', 'DELETE'], async ({ req, res, notes }) => {
+  // /api/notes/:id : GET 한 건, PUT 수정, DELETE 삭제. 모두 본인 메모만 처리한다.
+  const item = guarded(['GET', 'PUT', 'DELETE'], async ({ req, res, notes, userId }) => {
     const rawId = req.query?.id;
     if (typeof rawId !== 'string' || !UUID.test(rawId)) return res.status(400).json({ error: 'invalid_id' });
     const id = rawId.toLowerCase();
+    const me = userId.toLowerCase();
+    const notFound = () => res.status(404).json({ error: 'not_found' });
+    const isMine = (row) => Boolean(row) && typeof row.ownerId === 'string' && row.ownerId.toLowerCase() === me;
+
     if (req.method === 'GET') {
       const found = await notes.get(id);
-      return found ? res.status(200).json(found) : res.status(404).json({ error: 'not_found' });
+      return isMine(found) ? res.status(200).json({ id: found.id, title: found.title, body: found.body }) : notFound();
     }
     if (req.method === 'PUT') {
       const input = parseBody(req);
       if (!input) return res.status(400).json({ error: 'invalid_input', field: 'body' });
+      // 소유자를 바꾸려는 시도(내가 아닌 owner_id)는 요청 전체를 거부한다. 내 ID와 같으면 바뀌는 것이 없어 무시한다.
+      for (const claimed of [input.owner_id, input.ownerId]) {
+        if (claimed !== undefined && claimed !== null && String(claimed).toLowerCase() !== me) {
+          return res.status(403).json({ error: 'owner_change_forbidden' });
+        }
+      }
       if (input.id !== undefined && input.id !== null && String(input.id).toLowerCase() !== id) {
         return res.status(400).json({ error: 'id_mismatch' });
       }
       const note = readNote(input);
       if (note.error) return res.status(400).json(note.error);
-      return (await notes.update(id, note))
-        ? res.status(200).json({ id }) : res.status(404).json({ error: 'not_found' });
+      if (!isMine(await notes.get(id))) return notFound();
+      return (await notes.update(id, userId, note)) ? res.status(200).json({ id }) : notFound();
     }
-    return (await notes.remove(id))
-      ? res.status(200).json({ id }) : res.status(404).json({ error: 'not_found' });
+    if (!isMine(await notes.get(id))) return notFound();
+    return (await notes.remove(id, userId)) ? res.status(200).json({ id }) : notFound();
   });
 
   return { collection, item };

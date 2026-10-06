@@ -4,7 +4,7 @@ import { deploymentIdentity } from './deployment-identity.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const config = JSON.parse(await readFile(resolve(root, 'aleph.config.json'), 'utf8'));
-if (![1, 2, 3].includes(config.step)) {
+if (![1, 2, 3, 4].includes(config.step)) {
   throw new Error('이 단계의 빌드 흐름을 scripts/build-public.mjs에 맞춰 주세요.');
 }
 await mkdir(resolve(root, 'public'), { recursive: true });

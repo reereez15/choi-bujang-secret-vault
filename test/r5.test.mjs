@@ -78,7 +78,8 @@ function fakeRes() {
 test('step 2 build identity records the step and still rejects bad input', () => {
   assert.equal(deploymentIdentity(env, step2).step, 2);
   assert.equal(deploymentIdentity(env, { ...config, step: 3 }).step, 3);
-  assert.throws(() => deploymentIdentity(env, { ...config, step: 4 }));
+  assert.equal(deploymentIdentity(env, { ...config, step: 4 }).step, 4);
+  assert.throws(() => deploymentIdentity(env, { ...config, step: 5 }));
 });
 
 test('screen reads the server function and the public files hold no notes', () => {
@@ -277,38 +278,44 @@ const studentClaims = (sub, extra = {}) => ({ iss: studentIssuer, aud: 'authenti
 const noJudgeKeys = async () => { throw new Error('no_judge_key'); };
 const IDS = { missing: randomUUID(), other: randomUUID() };
 
-// 로그인한 사용자 두 명(A, B)과 메모리 안의 가짜 자료 저장소
-function memoryStore() {
+// 로그인한 사용자 두 명(A, B)과 메모리 안의 가짜 자료 저장소. 실제 DB처럼 쓰기·삭제에 소유자 조건을 건다.
+// filterOwner=false이면 저장소가 소유자 조건을 빼먹은 것처럼 동작해서, 처리기 쪽 검사만으로도 막히는지 시험한다.
+function memoryStore({ filterOwner = true } = {}) {
   const rows = new Map();
   const calls = [];
   const view = ({ id, title, body }) => ({ id, title, body });
+  const sameOwner = (row, ownerId) => !filterOwner || row.owner_id === ownerId;
   return { rows, calls, store: {
     async list(ownerId) { calls.push('list'); return [...rows.values()].filter((row) => row.owner_id === ownerId).map(view); },
-    async get(id) { calls.push('get'); return rows.has(id) ? view(rows.get(id)) : null; },
+    async get(id) { calls.push('get'); return rows.has(id) ? { ...view(rows.get(id)), ownerId: rows.get(id).owner_id } : null; },
     async create({ id, ownerId, title, body }) {
       calls.push('create');
       if (rows.has(id)) throw new NotesStoreError({ code: '23505' });
       rows.set(id, { id, owner_id: ownerId, title, body });
       return id;
     },
-    async update(id, { title, body }) {
+    async update(id, ownerId, { title, body }) {
       calls.push('update');
-      if (!rows.has(id)) return false;
+      if (!rows.has(id) || !sameOwner(rows.get(id), ownerId)) return false;
       Object.assign(rows.get(id), { title, body });
       return true;
     },
-    async remove(id) { calls.push('remove'); return rows.delete(id); },
+    async remove(id, ownerId) {
+      calls.push('remove');
+      if (!rows.has(id) || !sameOwner(rows.get(id), ownerId)) return false;
+      return rows.delete(id);
+    },
   } };
 }
 
-function apiHarness({ judgeKeySet = noJudgeKeys, createStore, extra = {} } = {}) {
+function apiHarness({ judgeKeySet = noJudgeKeys, createStore, extra = {}, filterOwner = true } = {}) {
   const users = {
     A: { sub: randomUUID(), token: null },
     B: { sub: randomUUID(), token: null },
   };
   for (const user of Object.values(users)) user.token = unsignedToken({ iss: studentIssuer, sub: user.sub, n: randomUUID() });
   const claimsByToken = new Map(Object.values(users).map((user) => [user.token, studentClaims(user.sub)]));
-  const memory = memoryStore();
+  const memory = memoryStore({ filterOwner });
   const seen = { logs: [], clientCalls: 0, getClaims: [] };
   const supabaseClient = { auth: { getClaims: async (token) => {
     seen.getClaims.push(token);
@@ -451,7 +458,7 @@ test('A reads, edits and deletes a note; after deleting, GET returns 404', async
   assert.equal(one.statusCode, 200);
   assert.deepEqual(one.body, { id, title: '원래 제목', body: '원래 내용' });
 
-  const put = await send(h.api.item, { method: 'PUT', headers: bearer(h.users.A), query: { id }, body: { title: '바뀐 제목', body: '바뀐 내용', owner_id: h.users.B.sub } });
+  const put = await send(h.api.item, { method: 'PUT', headers: bearer(h.users.A), query: { id }, body: { title: '바뀐 제목', body: '바뀐 내용', owner_id: h.users.A.sub } });
   assert.equal(put.statusCode, 200);
   assert.deepEqual(put.body, { id });
   assert.deepEqual((await send(h.api.item, { headers: bearer(h.users.A), query: { id } })).body, { id, title: '바뀐 제목', body: '바뀐 내용' });
@@ -474,15 +481,108 @@ test('A reads, edits and deletes a note; after deleting, GET returns 404', async
   }
 });
 
-// 알려진 약점: 4단계에서 소유자 검사를 붙이면 이 시험은 "B는 접근할 수 없다"로 바꿔야 한다.
-test('KNOWN GAP (step 4): a different logged-in user can still read, edit and delete A\'s note by id', async () => {
-  const h = apiHarness();
-  const id = await add(h, h.users.A, { title: 'A의 메모', body: 'A만 봐야 하는 내용' });
-  assert.equal((await send(h.api.item, { headers: bearer(h.users.B), query: { id } })).statusCode, 200);
-  assert.equal((await send(h.api.item, { method: 'PUT', headers: bearer(h.users.B), query: { id }, body: { title: 'B가 고침', body: 'x' } })).statusCode, 200);
-  assert.equal(h.memory.rows.get(id).title, 'B가 고침');
-  assert.equal((await send(h.api.item, { method: 'DELETE', headers: bearer(h.users.B), query: { id } })).statusCode, 200);
-  assert.equal(h.memory.rows.has(id), false);
+const B_NOTE_ID = 'b0b0b0b0-0000-4000-8000-000000000001';
+// A와 B가 각자 메모를 가진 상태. B의 메모 id는 SQL로 만든 시험 메모와 같은 고정값이다.
+async function twoUsers(options) {
+  const h = apiHarness(options);
+  const aId = await add(h, h.users.A, { title: 'A의 메모', body: 'A만 봐야 하는 내용' });
+  h.memory.rows.set(B_NOTE_ID, { id: B_NOTE_ID, owner_id: h.users.B.sub, title: 'B의 시험 메모', body: 'B만 봐야 하는 내용' });
+  return { h, aId, bId: B_NOTE_ID };
+}
+const snapshot = (h) => JSON.stringify([...h.memory.rows.entries()].sort());
+
+test('A and B keep full access to their own notes', async () => {
+  const { h, aId, bId } = await twoUsers();
+  for (const [user, id, label] of [[h.users.A, aId, 'A'], [h.users.B, bId, 'B']]) {
+    const read = await send(h.api.item, { headers: bearer(user), query: { id } });
+    assert.equal(read.statusCode, 200, label);
+    assert.deepEqual(Object.keys(read.body).sort(), ['body', 'id', 'title']);
+    const edit = await send(h.api.item, { method: 'PUT', headers: bearer(user), query: { id }, body: { title: `${label} 수정`, body: '수정 내용' } });
+    assert.deepEqual([edit.statusCode, edit.body], [200, { id }], label);
+    assert.equal(h.memory.rows.get(id).owner_id, user.sub, '수정해도 소유자는 그대로여야 합니다');
+    assert.equal((await send(h.api.item, { headers: bearer(user), query: { id } })).body.title, `${label} 수정`);
+    const created = await send(h.api.collection, { method: 'POST', headers: bearer(user), body: { title: `${label}의 새 메모`, body: 'x' } });
+    assert.equal(created.statusCode, 201);
+    assert.equal(h.memory.rows.get(created.body.id).owner_id, user.sub);
+    assert.equal((await send(h.api.item, { method: 'DELETE', headers: bearer(user), query: { id } })).statusCode, 200);
+    assert.equal((await send(h.api.item, { headers: bearer(user), query: { id } })).statusCode, 404);
+  }
+});
+
+test('the other user cannot read, edit or delete a note, and the refusal looks like a missing note', async () => {
+  const { h, aId, bId } = await twoUsers();
+  const missing = await send(h.api.item, { headers: bearer(h.users.B), query: { id: IDS.missing } });
+  assert.equal(missing.statusCode, 404);
+  const before = snapshot(h);
+  const attempts = [
+    ['B reads A', h.users.B, aId, 'GET'], ['A reads B', h.users.A, bId, 'GET'],
+    ['B edits A', h.users.B, aId, 'PUT'], ['A edits B', h.users.A, bId, 'PUT'],
+    ['B deletes A', h.users.B, aId, 'DELETE'], ['A deletes B', h.users.A, bId, 'DELETE'],
+  ];
+  for (const [label, user, id, method] of attempts) {
+    const res = await send(h.api.item, { method, headers: bearer(user), query: { id },
+      body: method === 'PUT' ? { title: '탈취', body: '탈취' } : undefined });
+    assert.equal(res.statusCode, 404, label);
+    assert.deepEqual(res.body, missing.body, `${label}: 남의 메모와 없는 메모의 응답이 같아야 합니다`);
+    assert.ok(!JSON.stringify(res).includes('만 봐야 하는 내용'), `${label}: 내용이 새면 안 됩니다`);
+  }
+  assert.equal(snapshot(h), before, '거부된 요청이 자료를 바꾸면 안 됩니다');
+  const lists = [await send(h.api.collection, { headers: bearer(h.users.A) }), await send(h.api.collection, { headers: bearer(h.users.B) })];
+  assert.deepEqual(lists.map((res) => res.body.map((note) => note.id)), [[aId], [bId]]);
+});
+
+test('changing the owner is refused, whether it points at the other user or at no one', async () => {
+  const { h, aId } = await twoUsers();
+  const before = snapshot(h);
+  for (const claim of [{ owner_id: h.users.B.sub }, { ownerId: h.users.B.sub }, { owner_id: '' }, { owner_id: 'someone-else' }]) {
+    const own = await send(h.api.item, { method: 'PUT', headers: bearer(h.users.A), query: { id: aId }, body: { title: '바뀐 제목', body: 'b', ...claim } });
+    assert.equal(own.statusCode, 403, JSON.stringify(Object.keys(claim)));
+    assert.deepEqual(own.body, { error: 'owner_change_forbidden' });
+    const other = await send(h.api.item, { method: 'PUT', headers: bearer(h.users.B), query: { id: aId }, body: { title: '탈취', body: 'b', owner_id: h.users.A.sub } });
+    assert.equal(other.statusCode, 403);
+  }
+  assert.equal(snapshot(h), before, '소유자 변경 시도가 자료를 바꾸면 안 됩니다');
+  assert.equal(h.memory.rows.get(aId).owner_id, h.users.A.sub);
+  const same = await send(h.api.item, { method: 'PUT', headers: bearer(h.users.A), query: { id: aId }, body: { title: '내 ID는 괜찮음', body: 'b', owner_id: h.users.A.sub.toUpperCase() } });
+  assert.equal(same.statusCode, 200);
+  assert.equal(h.memory.rows.get(aId).owner_id, h.users.A.sub);
+});
+
+test('a body owner_id never decides who owns a new note, and a taken id is not overwritten', async () => {
+  const { h, aId } = await twoUsers();
+  const forged = await send(h.api.collection, { method: 'POST', headers: bearer(h.users.B), body: { title: 't', body: 'b', owner_id: h.users.A.sub, ownerId: h.users.A.sub } });
+  assert.equal(forged.statusCode, 201);
+  assert.equal(h.memory.rows.get(forged.body.id).owner_id, h.users.B.sub, '확인된 사용자 ID로 저장해야 합니다');
+  const before = snapshot(h);
+  const clash = await send(h.api.collection, { method: 'POST', headers: bearer(h.users.B), body: { id: aId, title: '덮어쓰기', body: 'x' } });
+  assert.equal(clash.statusCode, 409);
+  assert.equal(snapshot(h), before);
+});
+
+test('the handler alone keeps users apart even if the store forgets the owner filter', async () => {
+  const { h, aId, bId } = await twoUsers({ filterOwner: false });
+  const before = snapshot(h);
+  for (const [user, id] of [[h.users.B, aId], [h.users.A, bId]]) {
+    for (const method of ['GET', 'PUT', 'DELETE']) {
+      const res = await send(h.api.item, { method, headers: bearer(user), query: { id }, body: method === 'PUT' ? { title: 'x', body: 'y' } : undefined });
+      assert.equal(res.statusCode, 404, `${method}`);
+    }
+  }
+  assert.equal(snapshot(h), before);
+});
+
+test('an unfiltered owner mismatch from the store is never reported as success', async () => {
+  const seen = [];
+  const store = {
+    async get() { return { id: IDS.other, title: 't', body: 'b', ownerId: randomUUID() }; },
+    async update() { seen.push('update'); return true; }, async remove() { seen.push('remove'); return true; },
+  };
+  const h = apiHarness({ createStore: () => store });
+  for (const method of ['GET', 'PUT', 'DELETE']) {
+    const res = await send(h.api.item, { method, headers: bearer(h.users.A), query: { id: IDS.other }, body: { title: 't', body: 'b' } });
+    assert.equal(res.statusCode, 404, method);
+  }
+  assert.deepEqual(seen, [], '남의 메모에는 쓰기·삭제를 보내면 안 됩니다');
 });
 
 test('a verified judge identity (a) is accepted and a wrong audience is not', async () => {
@@ -559,13 +659,21 @@ test('the notes store maps body to content and stores only title, content, id an
   assert.deepEqual(calls.find(([name]) => name === 'insert'), ['insert', { id: noteId, owner_id: owner, title: 'T', content: 'C' }]);
   calls.length = 0;
 
+  next = { data: { id: noteId, title: 'T', content: 'C', owner_id: owner }, error: null };
+  assert.deepEqual(await store.get(noteId), { id: noteId, title: 'T', body: 'C', ownerId: owner });
+  assert.deepEqual(calls.find(([name]) => name === 'select'), ['select', 'id, title, content, owner_id']);
+  calls.length = 0;
+
   next = { data: [{ id: noteId }], error: null };
-  assert.equal(await store.update(noteId, { title: 'N', body: 'M' }), true);
-  assert.deepEqual(calls.find(([name]) => name === 'update'), ['update', { title: 'N', content: 'M' }]);
-  assert.deepEqual(calls.find(([name]) => name === 'eq'), ['eq', 'id', noteId]);
+  assert.equal(await store.update(noteId, owner, { title: 'N', body: 'M' }), true);
+  assert.deepEqual(calls.find(([name]) => name === 'update'), ['update', { title: 'N', content: 'M' }], 'owner_id는 수정 값에 없어야 합니다');
+  assert.deepEqual(calls.filter(([name]) => name === 'eq'), [['eq', 'id', noteId], ['eq', 'owner_id', owner]]);
+  calls.length = 0;
   next = { data: [], error: null };
-  assert.equal(await store.update(noteId, { title: 'N', body: 'M' }), false);
-  assert.equal(await store.remove(noteId), false);
+  assert.equal(await store.update(noteId, owner, { title: 'N', body: 'M' }), false);
+  calls.length = 0;
+  assert.equal(await store.remove(noteId, owner), false);
+  assert.deepEqual(calls.filter(([name]) => name === 'eq'), [['eq', 'id', noteId], ['eq', 'owner_id', owner]], '삭제에도 소유자 조건이 붙어야 합니다');
   next = { data: null, error: null };
   assert.equal(await store.get(noteId), null);
 
@@ -589,8 +697,10 @@ test('the handler trusts only the unmodified helper result', () => {
   const handler = readFileSync(new URL('../src/notes-handler.mjs', import.meta.url), 'utf8');
   assert.ok(handler.includes("from './verify-login.mjs'") && handler.includes('ownerId: userId'));
   assert.ok(!/jwtVerify|decodeJwt|getClaims|createRemoteJWKSet/u.test(handler), '토큰 검사는 도우미가 하고 여기서 새로 만들지 않습니다');
-  assert.ok(!/input\.(owner_id|ownerId|userId|role)|req\.(query|body)\.(owner_id|ownerId|userId|role)|headers\??\.\[?['"]?x-/u.test(handler),
-    '브라우저가 보낸 사용자 값은 읽지 않습니다');
+  assert.ok(!/(ownerId|userId|owner_id|role)\s*[:=]\s*(input|req)\b/u.test(handler), '브라우저가 보낸 값으로 사용자나 소유자를 정하면 안 됩니다');
+  assert.ok(!/req\.(query|body)\.(owner_id|ownerId|userId|role)|headers\??\.\[?['"]?x-/u.test(handler));
+  assert.ok(/ownerId: userId/u.test(handler) && /notes\.update\(id, userId/u.test(handler) && /notes\.remove\(id, userId/u.test(handler),
+    '추가·수정·삭제에는 검증된 사용자 ID를 넘겨야 합니다');
 });
 
 test('a restored login after reload no longer says the user is logged out', async () => {
@@ -697,11 +807,114 @@ test('step 3 attack check reports a real hole, an unreachable server and a norma
   }
 });
 
-test('the saved config matches the stage 3 implementation', () => {
-  assert.equal(realConfig.step, 3);
+test('the saved config matches the stage 4 implementation', () => {
+  assert.equal(realConfig.step, 4);
   assert.equal(realConfig.repoUrl, 'https://github.com/reereez15/choi-bujang-secret-vault');
   assert.equal(realConfig.publicAppUrl, 'https://choi-bujang-secret-vault-qkh6.vercel.app');
   assert.equal(realConfig.originalApiUrl, null);
   assert.equal(realConfig.restoreRoute, null);
   assert.ok(realConfig.judgeIssuer.endsWith('/defense/judge'));
+});
+
+// ---- 4단계 저장점: 상대 메모 접근·소유자 변경 점검 ----
+const step4 = { ...step3, step: 4 };
+const OWNER_IDS = ['owner_cross_read', 'owner_cross_update', 'owner_cross_delete', 'owner_list_isolation', 'owner_change_rejected', 'owner_note_intact'];
+
+// 토큰으로 사용자를 구분하는 가짜 서버. guarded=false이면 소유자를 확인하지 않는 서버처럼 동작한다.
+function ownerServer({ guarded = true, createStatus } = {}) {
+  const notes = new Map();
+  const requests = [];
+  const owners = { 'Bearer TOKEN-A': 'A', 'Bearer TOKEN-B': 'B' };
+  const reply = (status, body) => new Response(JSON.stringify(body), { status });
+  const impl = async (url, init = {}) => {
+    const u = new URL(String(url));
+    const method = init.method ?? 'GET';
+    const headers = init.headers ?? {};
+    const me = owners[headers.authorization];
+    requests.push({ method, path: u.pathname, me });
+    if (u.pathname === '/data.json') return reply(200, { notes: [] });
+    if (!me) return reply(401, { error: 'unauthorized' });
+    const body = init.body ? JSON.parse(init.body) : {};
+    if (u.pathname === '/api/notes') {
+      if (method === 'POST') {
+        if (createStatus) return reply(createStatus, { error: 'x' });
+        notes.set(body.id, { id: body.id, title: body.title, body: body.body, owner: me });
+        return reply(201, { id: body.id });
+      }
+      return reply(200, [...notes.values()].filter((n) => n.owner === me).map(({ id, title, body: b }) => ({ id, title, body: b })));
+    }
+    const id = u.pathname.split('/').pop();
+    const note = notes.get(id);
+    if (!note || (guarded && note.owner !== me)) return reply(404, { error: 'not_found' });
+    if (method === 'GET') return reply(200, { id, title: note.title, body: note.body });
+    if (method === 'PUT') {
+      if (body.owner_id !== undefined && guarded && body.owner_id !== me) return reply(403, { error: 'owner_change_forbidden' });
+      Object.assign(note, { title: body.title, body: body.body });
+      return reply(200, { id });
+    }
+    notes.delete(id);
+    return reply(200, { id });
+  };
+  return { notes, requests, impl };
+}
+async function withTokens(a, b, run) {
+  const saved = [process.env.ATTACK_CHECK_TOKEN, process.env.ATTACK_CHECK_TOKEN_B];
+  for (const [name, value] of [['ATTACK_CHECK_TOKEN', a], ['ATTACK_CHECK_TOKEN_B', b]]) {
+    if (value === undefined) delete process.env[name]; else process.env[name] = value;
+  }
+  try { return await run(); } finally {
+    for (const [name, value] of [['ATTACK_CHECK_TOKEN', saved[0]], ['ATTACK_CHECK_TOKEN_B', saved[1]]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+}
+const byId = (results) => Object.fromEntries(results.map((item) => [item.attackId, item]));
+
+test('step 4 attack check sends the real cross-user requests and cleans up its temporary note', async () => {
+  const server = ownerServer();
+  const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step4)));
+  const items = byId(results);
+  assert.equal(results.length, 15);
+  assert.equal(new Set(results.map((item) => item.attackId)).size, 15);
+  for (const id of OWNER_IDS) assert.ok(items[id], id);
+  for (const id of ['owner_cross_read', 'owner_cross_update', 'owner_cross_delete']) {
+    assert.match(items[id].observed, /^거부됨 \(HTTP 404, 응답 코드 not_found\)$/u, id);
+  }
+  assert.match(items.owner_change_rejected.observed, /^거부됨 \(HTTP 403, 응답 코드 owner_change_forbidden\)$/u);
+  assert.match(items.owner_list_isolation.observed, /목록에 A의 메모가 없음 \(HTTP 200, 메모 0건\)/u);
+  assert.match(items.owner_note_intact.observed, /원래 제목 그대로 읽음 \(HTTP 200\)/u);
+  assert.match(items.normal_login_read.observed, /HTTP 200로 메모/u);
+  assert.equal(server.notes.size, 0, '점검이 만든 임시 메모는 지워야 합니다');
+  const crossCalls = server.requests.filter((item) => item.me === 'B').map((item) => item.method);
+  assert.deepEqual(crossCalls, ['GET', 'PUT', 'DELETE', 'GET']);
+  for (const item of results) assert.ok(item.expected.length <= 300 && item.observed.length <= 300);
+  assert.ok(!JSON.stringify(results).includes('TOKEN-A') && !JSON.stringify(results).includes('TOKEN-B'));
+});
+
+test('step 4 attack check reports a real ownership hole instead of hiding it', async () => {
+  const server = ownerServer({ guarded: false });
+  const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step4)));
+  const items = byId(results);
+  for (const id of ['owner_cross_read', 'owner_cross_update', 'owner_cross_delete', 'owner_change_rejected']) {
+    assert.match(items[id].observed, /^거부되지 않음/u, id);
+  }
+  assert.match(items.owner_cross_read.observed, /메모 내용이 응답됨/u);
+  assert.match(items.owner_note_intact.observed, /바뀌었거나 읽히지 않음/u, '남이 지운 뒤라면 A의 메모가 없다고 적어야 합니다');
+  assert.equal(server.notes.size, 0);
+});
+
+test('step 4 attack check does not claim owner checks without two distinct real tokens', async () => {
+  for (const [a, b, why] of [[undefined, undefined, /토큰이 필요/u], ['TOKEN-A', undefined, /토큰이 필요/u], ['TOKEN-A', 'TOKEN-A', /같아서/u]]) {
+    const server = ownerServer();
+    const results = await withTokens(a, b, () => withFetch(server.impl, () => runAttackChecks(step4)));
+    const items = byId(results);
+    for (const id of OWNER_IDS) assert.match(items[id].observed, /^미실행/u, id);
+    assert.match(items.owner_cross_read.observed, why);
+    assert.ok(!server.requests.some((item) => item.method === 'POST' && item.me), '토큰이 없으면 로그인한 메모 추가를 보내면 안 됩니다');
+  }
+  const failedCreate = ownerServer({ createStatus: 401 });
+  const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(failedCreate.impl, () => runAttackChecks(step4)));
+  for (const id of OWNER_IDS) assert.match(byId(results)[id].observed, /^미실행: A의 임시 메모를 만들지 못했습니다 \(HTTP 401\)/u);
+  const blocked = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step4)));
+  assert.ok(blocked.every((item) => /^미실행/u.test(item.observed)), '서버에 닿지 못했다면 모두 미실행이어야 합니다');
 });

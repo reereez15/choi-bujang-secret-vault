@@ -115,10 +115,72 @@ async function runStepThree(config, app) {
   return results;
 }
 
+// 4단계: 서로 다른 두 사용자(A, B)의 실제 토큰이 있어야 보낼 수 있다. 토큰은 환경변수로만 받고 어디에도 적지 않는다.
+// A가 임시 메모를 만들고, B가 그 메모를 읽고 고치고 지우려 해 본 뒤, A가 메모를 지워 정리한다.
+const OWNER_CHECKS = [
+  ['owner_cross_read', '다른 로그인 사용자(B)가 A의 메모를 GET /api/notes/:id로 읽으려 하면 404로 거부됨'],
+  ['owner_cross_update', 'B가 A의 메모를 PUT /api/notes/:id로 고치려 하면 404로 거부됨'],
+  ['owner_cross_delete', 'B가 A의 메모를 DELETE /api/notes/:id로 지우려 하면 404로 거부됨'],
+  ['owner_list_isolation', 'B의 GET /api/notes 목록에는 A의 메모가 들어 있지 않음'],
+  ['owner_change_rejected', 'A가 자기 메모의 owner_id를 다른 값으로 바꾸려는 PUT은 403으로 거부됨'],
+  ['owner_note_intact', '위 시도가 끝난 뒤에도 A는 자기 메모를 원래 제목 그대로 읽을 수 있음'],
+];
+
+async function runOwnerChecks(app) {
+  const tokenA = process.env.ATTACK_CHECK_TOKEN;
+  const tokenB = process.env.ATTACK_CHECK_TOKEN_B;
+  const skip = (reason) => OWNER_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: `미실행: ${reason}` }));
+  if (!tokenA || !tokenB) {
+    return skip('서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).');
+  }
+  if (tokenA === tokenB) return skip('두 토큰이 같아서 서로 다른 사용자 점검을 할 수 없습니다.');
+
+  const as = (token, extra = {}) => ({ authorization: `Bearer ${token}`, ...extra });
+  const json = { 'content-type': 'application/json' };
+  const noteId = randomUUID();
+  const title = 'attack-check 임시 메모';
+  const created = await attempt(app, '/api/notes', { method: 'POST', headers: as(tokenA, json),
+    body: JSON.stringify({ id: noteId, title, body: 'owner check' }) });
+  if (created.unreached) return skip(`${created.unreached}.`);
+  if (created.response.status !== 201) {
+    return skip(`A의 임시 메모를 만들지 못했습니다 (HTTP ${created.response.status}). 토큰이 만료됐는지 확인하세요.`);
+  }
+  const code = (data) => (typeof data?.error === 'string' && /^[a-z_]{1,40}$/u.test(data.error) ? `, 응답 코드 ${data.error}` : '');
+  const refusal = (result, want) => {
+    if (result.unreached) return notReached(result);
+    const leaked = result.data?.title === title || result.data?.body === 'owner check';
+    const ok = result.response.status === want && !leaked;
+    return `${ok ? '거부됨' : '거부되지 않음'} (HTTP ${result.response.status}${code(result.data)}${leaked ? ', 메모 내용이 응답됨' : ''})`;
+  };
+  const observed = {};
+  try {
+    observed.owner_cross_read = refusal(await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenB) }), 404);
+    observed.owner_cross_update = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenB, json),
+      body: JSON.stringify({ title: 'attack-check 탈취', body: 'x' }) }), 404);
+    observed.owner_cross_delete = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenB) }), 404);
+    const list = await attempt(app, '/api/notes', { headers: as(tokenB) });
+    observed.owner_list_isolation = list.unreached ? notReached(list)
+      : list.response.status === 200 && Array.isArray(list.data) && !list.data.some((note) => note?.id === noteId)
+        ? `목록에 A의 메모가 없음 (HTTP 200, 메모 ${list.data.length}건)`
+        : `목록에 A의 메모가 보이거나 목록을 받지 못함 (HTTP ${list.response.status})`;
+    observed.owner_change_rejected = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenA, json),
+      body: JSON.stringify({ title, body: 'owner check', owner_id: randomUUID() }) }), 403);
+    const intact = await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenA) });
+    observed.owner_note_intact = intact.unreached ? notReached(intact)
+      : intact.response.status === 200 && intact.data?.title === title
+        ? 'A는 자기 메모를 원래 제목 그대로 읽음 (HTTP 200)'
+        : `A의 메모가 바뀌었거나 읽히지 않음 (HTTP ${intact.response.status})`;
+  } finally {
+    await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenA) });
+  }
+  return OWNER_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: observed[attackId] }));
+}
+
 export async function runAttackChecks(config) {
-  if (![1, 2, 3].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   const app = publicApp(config);
   if (config.step === 3) return runStepThree(config, app);
+  if (config.step === 4) return [...await runStepThree(config, app), ...await runOwnerChecks(app)];
   const staticResponse = await request(app, '/data.json');
   const { data: staticData } = await readBody(staticResponse);
   const staticVisible = staticData?.sampleMarker === config.sampleMarker
