@@ -1,0 +1,30 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "brute-force",
+  "source": "MITRE ATT&CK T1110 Brute Force (https://attack.mitre.org/techniques/T1110/)",
+  "patterns": [
+    {
+      "name": "같은 주소의 로그인 실패 연속",
+      "technique": "T1110.001",
+      "match": {
+        "description": "한 출발 주소(data.srcip)에서 로그인 실패가 짧은 시간에 연속으로 쌓인다. 실패 횟수는 data.count(문자열이라 숫자로 바꿔 비교)로 본다.",
+        "countField": "data.count",
+        "strongAtLeast": 15,
+        "weakAtLeast": 3
+      },
+      "evidence": "MITRE ATT&CK T1110.001 Password Guessing: 계정 하나에 비밀번호를 반복해 넣으면 같은 출발 주소에서 로그인 실패가 연속으로 쌓인다 (https://attack.mitre.org/techniques/T1110/001/)."
+    },
+    {
+      "name": "여러 계정에 같은 비밀번호 대입",
+      "technique": "T1110.003",
+      "match": {
+        "description": "한 출발 주소가 여러 계정에 같은 비밀번호로 로그인 실패를 낸다. 계정 수는 data.accounts(쉼표로 나뉜 목록)로 보고, 목록이 없으면 설명의 '같은 비밀번호'와 data.count를 함께 본다.",
+        "accountsField": "data.accounts",
+        "strongAccountsAtLeast": 5,
+        "weakAccountsAtLeast": 2,
+        "descriptionHint": "같은 비밀번호"
+      },
+      "evidence": "MITRE ATT&CK T1110.003 Password Spraying: 흔한 비밀번호 하나를 여러 계정에 돌려 넣으면 한 출발 주소에서 여러 계정의 로그인 실패가 나타난다 (https://attack.mitre.org/techniques/T1110/003/)."
+    }
+  ]
+}

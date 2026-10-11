@@ -1,0 +1,127 @@
+{
+  "schema": "aleph.xdr.blocklist.v1",
+  "moduleKey": "brute-force",
+  "note": "판정기 요청 계약에 출발 주소가 없어 src/decider.mjs 에는 연결하지 않은 거부 규칙 후보입니다.",
+  "rules": [
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "203.0.113.10",
+      "expiresAt": "2026-09-27T01:12:40.000Z",
+      "alertIds": [
+        "bf-01",
+        "bf-02"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 48건)",
+        "여러 계정에 같은 비밀번호 대입(T1110.003, 계정 8개)"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "198.51.100.20",
+      "expiresAt": "2026-09-27T01:14:02.000Z",
+      "alertIds": [
+        "bf-03"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 36건)"
+      ],
+      "maxConfidence": 0.97
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "192.0.2.30",
+      "expiresAt": "2026-09-27T01:20:11.000Z",
+      "alertIds": [
+        "bf-04"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 52건)"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "203.0.113.21",
+      "expiresAt": "2026-09-27T01:21:00.000Z",
+      "alertIds": [
+        "bf-05"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 20건)"
+      ],
+      "maxConfidence": 0.92
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "198.51.100.44",
+      "expiresAt": "2026-09-27T03:02:15.000Z",
+      "alertIds": [
+        "bf-06"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 61건)"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "203.0.113.15",
+      "expiresAt": "2026-09-27T03:05:40.000Z",
+      "alertIds": [
+        "bf-07"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 40건)"
+      ],
+      "maxConfidence": 0.98
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "192.0.2.18",
+      "expiresAt": "2026-09-27T05:10:02.000Z",
+      "alertIds": [
+        "bf-08"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 70건)"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "198.51.100.8",
+      "expiresAt": "2026-09-27T06:22:18.000Z",
+      "alertIds": [
+        "bf-09"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 15건) + 여러 계정에 같은 비밀번호 대입(T1110.003, 실패 15건)"
+      ],
+      "maxConfidence": 0.9
+    },
+    {
+      "ruleId": "xdr.brute-force.deny",
+      "action": "deny",
+      "srcip": "203.0.113.40",
+      "expiresAt": "2026-09-27T07:40:01.000Z",
+      "alertIds": [
+        "bf-10"
+      ],
+      "reasons": [
+        "같은 주소의 로그인 실패 연속(T1110.001, 실패 90건)"
+      ],
+      "maxConfidence": 0.99
+    }
+  ],
+  "skipped": []
+}
