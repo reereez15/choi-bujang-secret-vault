@@ -1,0 +1,167 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "web-injection",
+  "decisions": [
+    {
+      "alertId": "wi-01",
+      "action": "block",
+      "confidence": 0.97,
+      "reason": "요청 인자 안의 SQL 구문(T1190, CWE-89), 반복 12회"
+    },
+    {
+      "alertId": "wi-02",
+      "action": "block",
+      "confidence": 0.94,
+      "reason": "요청 인자 안의 스크립트 태그(T1190, CWE-79), 반복 9회"
+    },
+    {
+      "alertId": "wi-03",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "경로 거슬러 올라가기(../) 반복(T1190, CWE-22), 반복 8회"
+    },
+    {
+      "alertId": "wi-04",
+      "action": "block",
+      "confidence": 0.99,
+      "reason": "요청 인자 안의 SQL 구문(T1190, CWE-89), 반복 20회"
+    },
+    {
+      "alertId": "wi-05",
+      "action": "block",
+      "confidence": 0.99,
+      "reason": "요청 인자 안의 SQL 구문(T1190, CWE-89) + 요청 인자 안의 스크립트 태그(T1190, CWE-79), 반복 15회"
+    },
+    {
+      "alertId": "wi-06",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "요청 인자 안의 명령 구분자(T1190, CWE-78), 반복 11회"
+    },
+    {
+      "alertId": "wi-07",
+      "action": "block",
+      "confidence": 0.99,
+      "reason": "경로 거슬러 올라가기(../) 반복(T1190, CWE-22), 반복 14회"
+    },
+    {
+      "alertId": "wi-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "요청 인자 안의 SQL 구문(T1190, CWE-89), 반복 10회"
+    },
+    {
+      "alertId": "wi-09",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-10",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-11",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-12",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-13",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-14",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-15",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-16",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-17",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "외부 공개 앱 악용 표시(T1190)만 있고 주입 패턴 표기·반복 없음, 반복 1회"
+    },
+    {
+      "alertId": "wi-18",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-19",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-20",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-25",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    },
+    {
+      "alertId": "wi-26",
+      "action": "record",
+      "confidence": 0,
+      "reason": "일치하는 웹 주입 패턴 없음"
+    }
+  ],
+  "counts": {
+    "block": 8,
+    "alert": 9,
+    "record": 9
+  }
+}

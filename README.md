@@ -49,6 +49,44 @@
 - B로 로그인해 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404`였고 A의 메모는 그대로였습니다. 화면에서 A는 네 건, B는 한 건만 보였습니다.
 - 소유자 변경(403) 거부는 `attack-check`가 배포에서 확인했습니다(두 사용자 토큰을 넘겨 실행한 결과).
 
+## 보너스 xdr-01 「무차별 로그인 공격을 잡아 냅니다」
+
+Wazuh 로그인 경보 묶음(`xdr/fixtures/brute-force.json`, 28건)을 MITRE ATT&CK T1110 패턴과 맞춰 판단합니다. 판정기(`src/decider.mjs`)의 규칙은 고치지 않았습니다.
+
+- `xdr/brute-force/patterns.json`: 근거가 있는 패턴 두 개(T1110.001 같은 주소의 로그인 실패 연속, T1110.003 여러 계정에 같은 비밀번호 대입). 기준값(15·3건, 5·2개)은 이번 경보에 맞춘 조정값입니다.
+- `xdr/brute-force/decide.mjs`: 위 패턴을 맨 위 상수로 옮겨 적고 `decide(alert)`가 `{ action, confidence, reason }`을 돌려줍니다. 확신도 0.85 이상 block, 0.5 이상 alert, 그 아래 record. 다른 파일·패키지를 불러오지 않고, 파일 입출력과 네트워크 없이 혼자 계산합니다.
+- `xdr/brute-force/respond.mjs`: block 경보만 출발 주소별 거부 규칙 후보(`blocklist.json`, 만료 시각·근거 경보 번호 포함)로 적고, block·alert를 `xdr/alerts.log`에 쌓습니다. 정상 경보에 나온 주소는 후보에서 뺍니다. `checkSource()`는 deny 또는 no_opinion만 돌려주는 확인 단계 부품입니다. 판정기 요청 계약(`docs/DECIDER_REQUEST.md`)에 출발 주소가 없어 실제 판정기에는 연결하지 않았습니다.
+- `xdr/brute-force/read-alerts.mjs`: 시각·주소·계정·수준·설명만 뽑는 확인용 읽기 모듈입니다. `decide.mjs`는 이 파일을 불러오지 않습니다.
+
+실행 방법:
+
+```bash
+npm run xdr:run -- brute-force        # result.json 생성 (PowerShell에서는 npm.cmd)
+node xdr/brute-force/respond.mjs       # 차단 후보·알림 기록·다시 흘리기 확인
+node xdr/brute-force/read-alerts.mjs   # 경보 건수와 뽑은 줄 수 확인
+```
+
+로컬 결과: block 10 · alert 9 · record 9, 정상 이벤트를 block한 경우 없음. 로컬 결과는 심판 판정이 아니며, 심판은 격리된 환경에서 같은 명령을 다시 실행합니다.
+
+## 보너스 xdr-02 「웹 주입 공격을 잡아 냅니다」
+
+Wazuh 웹 요청 경보 묶음(`xdr/fixtures/web-injection.json`, 26건)을 MITRE ATT&CK T1190(외부 공개 앱 악용) 패턴과 맞춰 판단합니다. 판정기(`src/decider.mjs`)의 규칙은 고치지 않았습니다.
+
+- `xdr/web-injection/patterns.json`: 근거가 있는 패턴 네 개(SQL 구문 CWE-89, 스크립트 태그 CWE-79, 경로 거슬러 올라가기 CWE-22, 명령 구분자 CWE-78). 명령 구분자는 연속 요청 11번의 명확한 공격(wi-06)을 잡으려고 더했습니다. 반복 기준(5회·1회)은 이번 경보에 맞춘 조정값입니다.
+- `xdr/web-injection/decide.mjs`: 위 패턴을 맨 위 상수로 옮겨 적고 `decide(alert)`가 `{ action, confidence, reason }`을 돌려줍니다. 공격 표기 구절과 반복 5회 이상이면 block, 표기 없이 T1190 표시만 있는 단발 요청은 alert, 그 밖은 record입니다. 'SQL'·'스크립트' 같은 단어 하나로는 맞추지 않습니다. 다른 파일·패키지를 불러오지 않고, 파일 입출력과 네트워크 없이 혼자 계산합니다.
+- `xdr/web-injection/respond.mjs`: block 경보만 출발 주소별 거부 규칙 후보(`blocklist.json`, 만료 시각·근거 경보 번호 포함)로 적고, block·alert를 `xdr/alerts.log`에 `module=web-injection` 표시와 함께 쌓습니다. 판정기 요청 계약에 출발 주소가 없어 실제 판정기에는 연결하지 않았습니다.
+- `xdr/web-injection/read-alerts.mjs`: 시각·주소·계정·수준·설명만 뽑는 확인용 읽기 모듈입니다. `decide.mjs`는 이 파일을 불러오지 않습니다.
+
+실행 방법:
+
+```bash
+npm run xdr:run -- web-injection          # result.json 생성 (PowerShell에서는 npm.cmd)
+node xdr/web-injection/respond.mjs         # 차단 후보·알림 기록·다시 흘리기 확인
+node xdr/web-injection/read-alerts.mjs     # 경보 건수와 뽑은 줄 수 확인
+```
+
+로컬 결과: block 8 · alert 9 · record 9, 정상 이벤트를 block한 경우 없음. 로컬 결과는 심판 판정이 아니며, 심판은 격리된 환경에서 같은 명령을 다시 실행합니다.
+
 ## 가상 메모 노출 확인 절차 (2단계)
 
 현재 배포 파일과 GitHub 최신 파일에 가상 메모 문장이 남아 있는지 검색하는 절차입니다. 검색어를 이 README나 코드에 적으면 검색 결과에 걸리므로, 검색어는 저장소에 쓰지 않고 확인할 때마다 DB에서 가져옵니다.

@@ -1,0 +1,101 @@
+{
+  "schema": "aleph.xdr.blocklist.v1",
+  "moduleKey": "web-injection",
+  "note": "판정기 요청 계약에 출발 주소가 없어 src/decider.mjs 에는 연결하지 않은 거부 규칙 후보입니다.",
+  "rules": [
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "203.0.113.10",
+      "expiresAt": "2026-09-27T01:13:20.000Z",
+      "alertIds": [
+        "wi-01",
+        "wi-02"
+      ],
+      "reasons": [
+        "요청 인자 안의 SQL 구문(T1190, CWE-89), 반복 12회",
+        "요청 인자 안의 스크립트 태그(T1190, CWE-79), 반복 9회"
+      ],
+      "maxConfidence": 0.97
+    },
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "198.51.100.15",
+      "expiresAt": "2026-09-27T01:16:04.000Z",
+      "alertIds": [
+        "wi-03"
+      ],
+      "reasons": [
+        "경로 거슬러 올라가기(../) 반복(T1190, CWE-22), 반복 8회"
+      ],
+      "maxConfidence": 0.93
+    },
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "192.0.2.15",
+      "expiresAt": "2026-09-27T02:02:11.000Z",
+      "alertIds": [
+        "wi-04"
+      ],
+      "reasons": [
+        "요청 인자 안의 SQL 구문(T1190, CWE-89), 반복 20회"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "203.0.113.18",
+      "expiresAt": "2026-09-27T02:18:33.000Z",
+      "alertIds": [
+        "wi-05"
+      ],
+      "reasons": [
+        "요청 인자 안의 SQL 구문(T1190, CWE-89) + 요청 인자 안의 스크립트 태그(T1190, CWE-79), 반복 15회"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "198.51.100.18",
+      "expiresAt": "2026-09-27T03:07:08.000Z",
+      "alertIds": [
+        "wi-06"
+      ],
+      "reasons": [
+        "요청 인자 안의 명령 구분자(T1190, CWE-78), 반복 11회"
+      ],
+      "maxConfidence": 0.96
+    },
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "192.0.2.21",
+      "expiresAt": "2026-09-27T05:04:19.000Z",
+      "alertIds": [
+        "wi-07"
+      ],
+      "reasons": [
+        "경로 거슬러 올라가기(../) 반복(T1190, CWE-22), 반복 14회"
+      ],
+      "maxConfidence": 0.99
+    },
+    {
+      "ruleId": "xdr.web-injection.deny",
+      "action": "deny",
+      "srcip": "203.0.113.22",
+      "expiresAt": "2026-09-27T06:26:02.000Z",
+      "alertIds": [
+        "wi-08"
+      ],
+      "reasons": [
+        "요청 인자 안의 SQL 구문(T1190, CWE-89), 반복 10회"
+      ],
+      "maxConfidence": 0.95
+    }
+  ],
+  "skipped": []
+}

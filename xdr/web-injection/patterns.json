@@ -1,0 +1,59 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "web-injection",
+  "source": "MITRE ATT&CK T1190 Exploit Public-Facing Application (https://attack.mitre.org/techniques/T1190/)",
+  "patterns": [
+    {
+      "name": "요청 인자 안의 SQL 구문",
+      "technique": "T1190",
+      "weakness": "CWE-89",
+      "match": {
+        "description": "경보 설명에 SQL 구문·SQL 표식·데이터베이스 조회를 이어 붙인 표기가 있고, 같은 주소에서 반복된다. 반복 횟수는 data.count(문자열이라 숫자로 바꿔 비교)로 본다. 'SQL'이라는 단어 하나만으로는 맞추지 않는다.",
+        "descriptionAny": ["SQL 구문", "SQL 표식", "데이터베이스 조회를 이어 붙"],
+        "countField": "data.count",
+        "strongAtLeast": 5,
+        "weakAtLeast": 1
+      },
+      "evidence": "MITRE ATT&CK T1190: 공개된 웹 앱의 요청 인자에 SQL 구문을 넣어 데이터베이스 질의를 바꾸는 것이 대표적 악용 방식이다(CWE-89 SQL Injection, https://cwe.mitre.org/data/definitions/89.html)."
+    },
+    {
+      "name": "요청 인자 안의 스크립트 태그",
+      "technique": "T1190",
+      "weakness": "CWE-79",
+      "match": {
+        "description": "경보 설명에 스크립트 삽입 표기나 스크립트 표식이 있고, 같은 주소에서 반복된다. '스크립트'라는 수업 단어 하나만으로는 맞추지 않는다.",
+        "descriptionAny": ["스크립트 삽입", "스크립트 표식"],
+        "countField": "data.count",
+        "strongAtLeast": 5,
+        "weakAtLeast": 1
+      },
+      "evidence": "MITRE ATT&CK T1190: 공개된 웹 앱의 입력에 스크립트 태그를 넣어 다른 사용자의 화면에서 실행되게 하는 것도 앱 악용에 쓰인다(CWE-79 Cross-site Scripting, https://cwe.mitre.org/data/definitions/79.html)."
+    },
+    {
+      "name": "경로 거슬러 올라가기(../) 반복",
+      "technique": "T1190",
+      "weakness": "CWE-22",
+      "match": {
+        "description": "경보 설명에 경로를 거슬러 올라가는 표기나 경로 이탈 표기가 있고, 같은 주소에서 반복된다. 경로에 'up'이 한 번 있는 것만으로는 맞추지 않는다.",
+        "descriptionAny": ["거슬러 올라가", "경로 이탈"],
+        "countField": "data.count",
+        "strongAtLeast": 5,
+        "weakAtLeast": 1
+      },
+      "evidence": "MITRE ATT&CK T1190: 공개된 웹 앱의 파일 경로 인자에 ../ 를 반복해 허용된 폴더 밖 파일을 읽는 것이 알려진 악용 방식이다(CWE-22 Path Traversal, https://cwe.mitre.org/data/definitions/22.html)."
+    },
+    {
+      "name": "요청 인자 안의 명령 구분자",
+      "technique": "T1190",
+      "weakness": "CWE-78",
+      "match": {
+        "description": "경보 설명에 명령 구분자 표기가 있고, 연속 요청에서 반복된다. 이름 검색의 구분 문자 한 건만으로는 맞추지 않는다.",
+        "descriptionAny": ["명령 구분자"],
+        "countField": "data.count",
+        "strongAtLeast": 5,
+        "weakAtLeast": 1
+      },
+      "evidence": "MITRE ATT&CK T1190: 공개된 웹 앱의 인자에 ; | & 같은 명령 구분자를 넣어 서버 명령을 이어 실행하게 하는 것이 알려진 악용 방식이다(CWE-78 OS Command Injection, https://cwe.mitre.org/data/definitions/78.html)."
+    }
+  ]
+}
