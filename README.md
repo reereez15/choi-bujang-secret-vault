@@ -2,7 +2,9 @@
 
 이 저장소는 1단계에서 학생 본인이 GitHub 저장소와 Vercel 배포를 만드는 출발점입니다. 시작 틀에 들어 있던 메모 네 건은 가상 자료이며 2단계에서 DB로 옮겼습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
-## 현재 상태: 5단계 「자료 요청을 서버 한곳으로 모읍니다」
+## 현재 상태: 6단계 「등록한 기기만 자료실에 들어옵니다」
+
+5단계까지의 자료 보호는 그대로이고, 6단계에서 판정기 `src/decider.mjs`에 기기 등록 규칙 `device_registered`를 더했습니다(아래 "6단계" 절).
 
 **지금 작동하는 기능**
 - 자료 요청은 **화면 → 서버 함수(`/api/notes`) → DB** 한 길로만 갑니다. 로그인도 같은 서버를 거칩니다. **브라우저 코드(`public/`)에는 Supabase 키도, Supabase SDK도, 프로젝트 주소도 없고**(시험이 이 상태를 고정합니다), 화면의 요청은 모두 같은 서버의 `/api/notes*`와 `/api/auth/*`입니다.
@@ -14,12 +16,13 @@
   - 소유자 검사: 한 건 요청은 DB의 `owner_id`가 검증된 사용자 ID와 같을 때만 처리하고, 남의 메모는 없는 메모와 같은 404입니다. 수정 본문에 내 ID가 아닌 `owner_id`가 있으면 403으로 거부합니다. 추가할 때 `owner_id`는 검증된 ID로만 저장합니다.
 - **DB 직접 접근 차단:** 테이블 `vault_notes`에서 `PUBLIC`·`anon`·`authenticated`의 직접 권한(열 단위 포함)을 모두 회수했습니다. 서버 함수가 쓰는 서버 전용 키의 역할 `service_role`만 읽기·추가·수정·삭제 권한을 갖습니다. RLS는 켜져 있고 정책 네 개(`auth.uid() = owner_id`)도 그대로 두었지만, 권한이 없어서 지금은 쓰이지 않고 나중에 실수로 권한이 열려도 한 번 더 막는 장치입니다. 테이블과 권한을 만든 SQL 파일은 가상 메모 문장이 들어 있어 이 저장소에 두지 않았습니다.
 - **원본 자료 API 주소:** `aleph.config.json`의 `originalApiUrl`은 Supabase Data API의 메모 테이블 주소(`…/rest/v1/vault_notes`)이고 쿼리·해시·인증 정보가 없습니다. 이 주소를 공개용(anon) 키나 로그인 토큰으로 직접 부르면 `401`/`403`과 `permission denied`(코드 42501)로 거부됩니다. 배포할 때 빌드가 만드는 `/aleph.json`(배포 식별 파일)에도 5단계부터 같은 `originalApiUrl`이, 3단계부터 `allowedRoutes`(허용 경로 여덟 개)가 들어가고, 값이 없거나 모양이 틀리면 빌드가 멈춥니다. 심판은 배포된 `/aleph.json`에서 이 값들을 읽습니다.
-- `aleph.config.json`은 `step` 5이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
+- `aleph.config.json`은 `step` 6이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
 - 서버 함수는 `SUPABASE_URL`, 로그인에 쓰는 공개용(publishable) 키 `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`를 **Vercel 환경변수**에서만 읽습니다. 세 값은 Vercel 프로젝트 Settings → Environment Variables 입력란에 직접 넣고(키는 Sensitive로), 코드·Git·채팅·로그·브라우저 파일에는 쓰지 않습니다. `SUPABASE_PUBLISHABLE_KEY`가 없으면 로그인이 `server_not_configured`로 실패하고 화면에 "로그인 서버 설정이 아직 없습니다"가 보입니다.
 - `data.json`과 `public/data.json`은 `{ "notes": [] }`입니다. 배포된 `/data.json`에는 메모가 없습니다.
 - 첫 화면을 포함한 모든 응답에 `vercel.json`의 `headers`로 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`를 붙입니다. 서버 함수 응답에는 코드가 `nosniff`를 따로 붙입니다. 화면의 인라인 스크립트와 스타일 때문에 `Content-Security-Policy`는 아직 쓰지 않습니다.
 
 **다시 실행하는 방법**
+- 판정기 연습: `npm run decider:test`. 등록 기기 요청은 통과(allow), 미등록 기기 가상 요청은 `deny`·`device_not_registered`여야 합니다. 심판 판정이 아닙니다.
 - 로컬 시험: `npm ci` 다음 `npm run test:r5`. 가짜 로그인과 가짜 DB로 하는 연습이며 실제 DB 연결이나 배포를 증명하지 않습니다. (Windows PowerShell에서 `npm`이 막히면 `npm.cmd`를 씁니다.)
 - 배포 전 한 번: Vercel 환경변수에 `SUPABASE_PUBLISHABLE_KEY`(Supabase 대시보드의 Publishable key)를 넣고 다시 배포합니다. 값은 저장소·채팅에 쓰지 않습니다.
 - 배포 확인: 시크릿 창에서 `짧은주소/aleph.json`을 열어 `commit`이 방금 푸시한 커밋이고 `allowedRoutes`와 `originalApiUrl`(`https://…/rest/v1/vault_notes`)이 들어 있는지 보고, 첫 화면의 응답 헤더에 `x-content-type-options: nosniff`가 있는지 보고, A로 로그인해 메모를 추가·수정·삭제하고, B로 로그인하면 B의 메모만 보이는지, 로그인 없이 `/api/notes`를 열면 `unauthorized`인지 봅니다.
@@ -48,6 +51,26 @@
 - 기존 가상 메모 네 건은 A 계정, 시험 메모 한 건은 B 계정의 `owner_id`로 연결했고 소유자가 없는 행은 0건입니다.
 - B로 로그인해 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404`였고 A의 메모는 그대로였습니다. 화면에서 A는 네 건, B는 한 건만 보였습니다.
 - 소유자 변경(403) 거부는 `attack-check`가 배포에서 확인했습니다(두 사용자 토큰을 넘겨 실행한 결과).
+
+## 6단계 「등록한 기기만 자료실에 들어옵니다」
+
+판정기 `src/decider.mjs`에 규칙 하나를 넣었습니다. 요청·응답 모양은 `docs/DECIDER_REQUEST.md`의 계약 그대로이고, 계약에 있는 `request.deviceRegistered`만 씁니다.
+
+- 규칙 `device_registered`: `deviceRegistered`가 정확히 `true`일 때만 `allow`(이유 코드 `approved`)입니다. `false`이거나 값이 없거나 다른 모양이면 `deny`(이유 코드 `device_not_registered`)입니다. 두 응답 모두 `ruleIds`에 `device_registered`를 적습니다.
+- `RULE_IDS`는 `['device_registered']`입니다. 시작 틀의 `starter.deny`(모든 요청 거부)는 구현 전 표시였으므로 이 규칙으로 바꿨습니다.
+- 단계 번호 6에 맞춰 빌드(`scripts/build-public.mjs`), 배포 식별(`scripts/deployment-identity.mjs`), 자기 점검(`src/attack-check.mjs`)이 6단계를 받도록 했습니다. 자기 점검은 5단계와 같은 실제 요청만 보냅니다. 기기 등록 규칙은 배포 서버로 보내는 요청이 아니라 심판이 가상 요청으로 확인하기 때문입니다.
+- 사용자(`subjectId`)·기기(`deviceId`)를 브라우저 값으로 따로 믿지 않고, 인증서·CA·서명 키는 만들거나 저장소에 넣지 않았습니다. 이번 과정에는 따로 설치할 접속 프로그램이 없습니다.
+
+확인 순서 (로컬 연습):
+
+1. 자료실 폴더에서 `npm ci`를 한 번 실행합니다. (PowerShell에서는 `npm.cmd`)
+2. `npm run decider:test`를 실행합니다.
+3. 출력에 `통과 · 등록 기기의 정상 요청`(allow)과 `통과 · 미등록 기기의 가상 요청`(deny·`device_not_registered`)이 둘 다 보여야 합니다. 어느 한 줄이라도 `확인 필요`이면 `src/decider.mjs`의 규칙을 다시 봅니다.
+
+이 시험은 가상 요청으로 하는 연습이며 심판 판정이 아닙니다. 실제 경로에서는 반 엔진의 릴레이가 미등록 기기를 판정기보다 먼저 막고, 미등록 기기 공격은 심판이 가상 요청으로 보냅니다.
+
+**6단계 확인 기록 (2026-10-14, 직접 실행한 것만 적었습니다)**
+- 학생 PC에서 `npm run decider:test`를 실행해 두 줄 모두 `통과`를 확인했습니다.
 
 ## 보너스 xdr-01 「무차별 로그인 공격을 잡아 냅니다」
 
