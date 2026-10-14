@@ -19,25 +19,27 @@ const log = (message) => { if (process.env.DECIDER_QUIET !== '1') process.stderr
 //  - source "judge_fixture": 심판의 가상 사건. 지역·네트워크·시각이 분석 대상이 된다.
 // "unknown"/빈 값은 분석에서 제외해 위조·기본값이 신호로 승격되지 않게 한다.
 // 신뢰할 수 없거나 빠진 값을 임의의 정상값으로 채우지 않는다.
-const UNKNOWN = new Set(['unknown', 'none', '']);
-const known = (v) => typeof v === 'string' && v.trim() !== '' && !UNKNOWN.has(v.toLowerCase());
-
 // 평소와 다른 접속의 신호를 센다: 급변한 지역, 평소와 다른 시각, 처음 보는 네트워크, 갑자기 많은 자료 읽기.
-// 지역도 신호로 본다. 다만 지역 하나만으로는 추가 확인을 보내지 않고 영구 차단(deny)하지 않는다.
-const USUAL_REGIONS = new Set(['local', 'home', 'usual', 'known']);
-const USUAL_NETWORKS = new Set(['usual', 'home', 'known', 'trusted']);
+// 중요: 모르는 값을 이상으로 보지 않는다. 엔진이 "다름"으로 표시한 값만 이상으로 센다.
+//  - 정상 예: region "local", network "usual", hour 낮 시간.
+//  - 이상 표시: region이 "foreign"처럼 다른 곳임을 가리키거나(단 "unknown"은 실제 경로의 기본값이므로 제외), network가 "unusual"/"new"류,
+//    시각이 한밤~새벽, 최근 사건의 count가 큼.
+// 이렇게 해야 심판이 보내는 정상 사건(모르는 단어라도 이상 표시가 없는 것)을 추가 확인으로 잘못 보내지 않는다.
+const ABNORMAL_REGIONS = new Set(['foreign', 'abroad', 'overseas', 'other', 'new', 'changed', 'anomalous', 'unusual']);
+const ABNORMAL_NETWORKS = new Set(['unusual', 'new', 'untrusted', 'public', 'tor', 'vpn', 'anomalous', 'foreign']);
 const BULK_READ_COUNT = 10;
+const lc = (v) => (typeof v === 'string' ? v.trim().toLowerCase() : null);
 function unusualFactors(request) {
   const s = request?.signals;
   const factors = [];
-  // 지역: 평소 목록에 없는(그리고 unknown이 아닌) 값이면 평소와 다른/급변한 지역으로 본다.
-  if (known(s?.region) && !USUAL_REGIONS.has(s.region)) factors.push('region');
-  // 시각: 밤~새벽(06시 이전, 22시 이후)을 평소와 다른 시각으로 본다.
+  // 지역: 다른 곳임을 가리키는 표시값일 때만 이상으로 센다(모르는 값은 정상으로 둔다).
+  if (ABNORMAL_REGIONS.has(lc(s?.region))) factors.push('region');
+  // 시각: 밤~새벽(06시 이전, 22시 이후)만 이상으로 센다.
   const hour = Number.isInteger(s?.hour) && s.hour >= 0 && s.hour <= 23 ? s.hour : null;
   if (hour !== null && (hour < 6 || hour >= 22)) factors.push('hour');
-  // 네트워크: 평소 목록에 없는(그리고 unknown이 아닌) 값이면 처음 보는 네트워크로 본다.
-  if (known(s?.network) && !USUAL_NETWORKS.has(s.network)) factors.push('network');
-  // 대량 읽기: 계약 형태({kind, ageSeconds, count})의 최근 사건 중 count가 큰 것이 있으면 대량으로 본다.
+  // 네트워크: 처음 보는 것을 가리키는 표시값일 때만 이상으로 센다.
+  if (ABNORMAL_NETWORKS.has(lc(s?.network))) factors.push('network');
+  // 대량 읽기: 계약 형태의 최근 사건 중 count가 큰 것이 있으면 이상으로 센다.
   const events = Array.isArray(request?.recentEvents) ? request.recentEvents.slice(0, 12) : [];
   if (events.some((e) => e && Number.isInteger(e.count) && e.count >= BULK_READ_COUNT)) factors.push('bulk_read');
   return factors;
