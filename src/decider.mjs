@@ -12,7 +12,15 @@ const response = (request, decision, reasonCode, ruleIds) => ({
 });
 
 // 사유 기록용 로거(테스트에서는 DECIDER_QUIET=1로 끌 수 있다). 토큰·본문은 기록하지 않는다.
-const log = (message) => { if (process.env.DECIDER_QUIET !== '1') process.stderr.write(`${message}\n`); };
+const log = (message) => {
+  // 심판·엔진 실행 환경에는 Node의 process가 없을 수 있다. 사유 기록이 판정을 멈추면 안 되므로
+  // process가 있을 때만 적고, 어떤 경우에도 예외를 밖으로 내보내지 않는다.
+  try {
+    const p = typeof process !== 'undefined' ? process : undefined;
+    if (p?.env?.DECIDER_QUIET === '1') return;
+    p?.stderr?.write?.(`${message}\n`);
+  } catch { /* 기록 실패는 무시한다 */ }
+};
 
 // 계약: signals = {source, region, network, hour}, recentEvents = [{kind, ageSeconds, count}].
 // 제작 2 지시: "평소와 다른 시각과 처음 보는 네트워크에서 갑자기 많은 자료를 읽는" 사건만 추가 확인.
