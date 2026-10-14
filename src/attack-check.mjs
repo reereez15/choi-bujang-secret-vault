@@ -242,13 +242,13 @@ async function runOriginalApiChecks(config) {
 }
 
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   const app = publicApp(config);
   if (config.step === 3) return runStepThree(config, app);
   if (config.step === 4) return [...await runStepThree(config, app), ...await runOwnerChecks(app)];
   // 6단계 판정기 규칙(기기 등록)은 배포 서버로 보내는 요청이 아니라 심판이 가상 요청으로 확인하므로,
   // 자기 점검은 5단계와 같은 실제 요청만 보냅니다.
-  if (config.step === 5 || config.step === 6 || config.step === 7) return [...await runStepThree(config, app), ...await runOwnerChecks(app), ...await runOriginalApiChecks(config)];
+  if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8) return [...await runStepThree(config, app), ...await runOwnerChecks(app), ...await runOriginalApiChecks(config)];
   const staticResponse = await request(app, '/data.json');
   const { data: staticData } = await readBody(staticResponse);
   const staticVisible = staticData?.sampleMarker === config.sampleMarker

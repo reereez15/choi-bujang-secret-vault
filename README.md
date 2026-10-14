@@ -2,7 +2,7 @@
 
 이 저장소는 1단계에서 학생 본인이 GitHub 저장소와 Vercel 배포를 만드는 출발점입니다. 시작 틀에 들어 있던 메모 네 건은 가상 자료이며 2단계에서 DB로 옮겼습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
-## 현재 상태: 7단계 「평소와 다른 접속은 다시 확인합니다」
+## 현재 상태: 8단계 「자료마다 갈 수 있는 구역을 나눕니다」
 
 6단계까지의 자료 보호와 기기 등록 규칙은 그대로이고, 7단계에서 판정기 `src/decider.mjs`에 평소와 다른 접속을 다시 확인하는 규칙 `step_up_required`를 더했습니다(아래 "7단계" 절).
 
@@ -16,7 +16,7 @@
   - 소유자 검사: 한 건 요청은 DB의 `owner_id`가 검증된 사용자 ID와 같을 때만 처리하고, 남의 메모는 없는 메모와 같은 404입니다. 수정 본문에 내 ID가 아닌 `owner_id`가 있으면 403으로 거부합니다. 추가할 때 `owner_id`는 검증된 ID로만 저장합니다.
 - **DB 직접 접근 차단:** 테이블 `vault_notes`에서 `PUBLIC`·`anon`·`authenticated`의 직접 권한(열 단위 포함)을 모두 회수했습니다. 서버 함수가 쓰는 서버 전용 키의 역할 `service_role`만 읽기·추가·수정·삭제 권한을 갖습니다. RLS는 켜져 있고 정책 네 개(`auth.uid() = owner_id`)도 그대로 두었지만, 권한이 없어서 지금은 쓰이지 않고 나중에 실수로 권한이 열려도 한 번 더 막는 장치입니다. 테이블과 권한을 만든 SQL 파일은 가상 메모 문장이 들어 있어 이 저장소에 두지 않았습니다.
 - **원본 자료 API 주소:** `aleph.config.json`의 `originalApiUrl`은 Supabase Data API의 메모 테이블 주소(`…/rest/v1/vault_notes`)이고 쿼리·해시·인증 정보가 없습니다. 이 주소를 공개용(anon) 키나 로그인 토큰으로 직접 부르면 `401`/`403`과 `permission denied`(코드 42501)로 거부됩니다. 배포할 때 빌드가 만드는 `/aleph.json`(배포 식별 파일)에도 5단계부터 같은 `originalApiUrl`이, 3단계부터 `allowedRoutes`(허용 경로 여덟 개)가 들어가고, 값이 없거나 모양이 틀리면 빌드가 멈춥니다. 심판은 배포된 `/aleph.json`에서 이 값들을 읽습니다.
-- `aleph.config.json`은 `step` 7이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
+- `aleph.config.json`은 `step` 8이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
 - 서버 함수는 `SUPABASE_URL`, 로그인에 쓰는 공개용(publishable) 키 `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`를 **Vercel 환경변수**에서만 읽습니다. 세 값은 Vercel 프로젝트 Settings → Environment Variables 입력란에 직접 넣고(키는 Sensitive로), 코드·Git·채팅·로그·브라우저 파일에는 쓰지 않습니다. `SUPABASE_PUBLISHABLE_KEY`가 없으면 로그인이 `server_not_configured`로 실패하고 화면에 "로그인 서버 설정이 아직 없습니다"가 보입니다.
 - `data.json`과 `public/data.json`은 `{ "notes": [] }`입니다. 배포된 `/data.json`에는 메모가 없습니다.
 - 첫 화면을 포함한 모든 응답에 `vercel.json`의 `headers`로 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`를 붙입니다. 서버 함수 응답에는 코드가 `nosniff`를 따로 붙입니다. 화면의 인라인 스크립트와 스타일 때문에 `Content-Security-Policy`는 아직 쓰지 않습니다.
@@ -51,6 +51,31 @@
 - 기존 가상 메모 네 건은 A 계정, 시험 메모 한 건은 B 계정의 `owner_id`로 연결했고 소유자가 없는 행은 0건입니다.
 - B로 로그인해 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404`였고 A의 메모는 그대로였습니다. 화면에서 A는 네 건, B는 한 건만 보였습니다.
 - 소유자 변경(403) 거부는 `attack-check`가 배포에서 확인했습니다(두 사용자 토큰을 넘겨 실행한 결과).
+
+## 8단계 「자료마다 갈 수 있는 구역을 나눕니다」
+
+판정기 `src/decider.mjs`에 구역 규칙 `zone_policy`를 더했습니다. 계약의 `service`·`method`·`route`·`path`만 보고, 요청 본문의 `role`·`owner`는 읽지 않습니다. 경로 모양은 계약 예시대로 `GET /notes/:id` 형태이며 앞의 `/api`는 있어도 없어도 같게 봅니다.
+
+- 구역 정의: 메모·반 공지·강사 자료를 경로 모양으로 나눕니다. 공지·강사도 "모르는 경로"로 두지 않고 명시적으로 분류한 뒤 정책을 적용합니다.
+- 정해진 경로 모양이 아니면 거부합니다(`zone_unknown_route`). `:id` 자리에 `export` 같은 기능 경로가 오면 모양이 맞지 않아 거부됩니다.
+- 반 공지는 읽기(GET)만 허용하고 쓰기(POST/PUT/PATCH/DELETE)는 누구에게나 거부합니다(`notice_write_forbidden`). 공지 수정은 서버의 관리 경로가 처리합니다.
+- 강사 자료는 판정기에서 모두 거부합니다(`instructor_zone_forbidden`).
+- 메모는 목록·단건·생성·수정·삭제를 허용합니다. 현재 `GET /api/notes` 목록은 자료 API가 검증된 사용자의 것만 반환하므로 본인 목록으로 봅니다. 메모의 소유자 비교와 소유자 변경 거부(403)는 판정기가 아니라 자료 API가 합니다.
+- 6단계 기기 등록과 7단계 재인증 규칙은 그대로 유지됩니다. `RULE_IDS`는 `['device_registered', 'step_up_required', 'zone_policy']`이고 모든 응답의 `ruleIds`는 이 안의 이름만 씁니다.
+- `aleph.config.json`의 `allowedRoutes`에는 판정기가 허용하는 메모 경로와 로그인 경로만 둡니다. 공지·강사 쓰기 경로는 넣지 않습니다.
+
+확인 순서 (로컬 연습):
+
+1. `npm ci` 뒤 `npm run decider:test` — 네 줄(등록 기기 허용, 미등록 거부, 복합 이상 step_up, 재확인 허용)이 모두 `통과`여야 합니다.
+2. `npm run fixture:7` — 정상 `allow`, 복합 이상 `step_up`.
+3. `npm run test:r5` — 전체 통과(`fail 0`).
+
+구역 규칙은 가상 요청으로 확인하는 연습이며 심판 판정이 아닙니다. 메모 소유자 격리와 공지·강사 권한의 실제 자료 차단은 자료 API가 담당하며, 강사 공지 쓰기 API는 제공하지 않습니다(판정기에서 거부). 미검증 범위: 운영 엔진을 통한 정상 쓰기·실제 강사 접속.
+
+**8단계 확인 기록 (2026-10-14, 직접 실행한 것만 적었습니다)**
+- 학생 PC에서 `decider:test` 네 줄 통과, `fixture:7` 정상/복합 이상 확인, `test:r5` 전체 통과.
+- 판정기 구역 판정: 메모 허용, 공지 쓰기·강사·미등록·기능 경로 거부 확인.
+- 엔진을 통한 정상 쓰기·실제 강사 접속: 미검증(심판 환경에서 확인).
 
 ## 7단계 「평소와 다른 접속은 다시 확인합니다」
 
