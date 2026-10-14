@@ -63,9 +63,8 @@ function recentlyVerified(request) {
 }
 
 // 평소와 다른 접속의 신호를 센다. 신뢰할 수 있는(judge_fixture) 접속 정보일 때만 본다.
-// 특정 단어에만 맞추지 않고 "평소로 알려진 값이 아니면 이상"으로 판단한다.
-// 어느 하나로 영구 차단하지 않고, 둘 이상 겹칠 때만 추가 확인(step_up)을 요청한다.
-const USUAL_REGIONS = new Set(['local', 'home', 'usual', 'known']);   // 평소 지역
+// 판단 축은 시각·네트워크·대량읽기 세 가지다(지역 하나만으로는 판단하지 않는다).
+// 특정 단어에만 맞추지 않고 "평소로 알려진 값이 아니면 이상"으로 본다.
 const USUAL_NETWORKS = new Set(['usual', 'home', 'known', 'trusted']); // 평소 네트워크
 const DAYTIME_START = 6;   // 06:00~21:59를 평소 시간대로 본다
 const DAYTIME_END = 22;    // 그 밖(밤~새벽)은 평소와 다른 시각
@@ -73,12 +72,10 @@ const BULK_READ_COUNT = 10; // 짧은 시간에 이만큼 이상 읽으면 대�
 function unusualFactors(signals, recentEvents) {
   if (!signals.analyzable) return [];           // 출처가 불명확하면 접속 정보로 판단하지 않는다
   const factors = [];
-  // 네트워크: 평소 목록에 없으면 처음 보는 네트워크로 본다(값이 있을 때만).
-  if (signals.network !== null && !USUAL_NETWORKS.has(signals.network)) factors.push('network');
-  // 지역: 평소 목록에 없으면 평소와 다른 지역으로 본다(값이 있을 때만).
-  if (signals.region !== null && !USUAL_REGIONS.has(signals.region)) factors.push('region');
   // 시각: 낮 시간대(06~21시)를 벗어나면 평소와 다른 시각으로 본다.
   if (signals.hour !== null && (signals.hour < DAYTIME_START || signals.hour >= DAYTIME_END)) factors.push('hour');
+  // 네트워크: 평소 목록에 없으면 처음 보는 네트워크로 본다(값이 있을 때만).
+  if (signals.network !== null && !USUAL_NETWORKS.has(signals.network)) factors.push('network');
   // 대량 읽기: 종류 이름에 매이지 않고, 최근 사건 중 count가 큰 것이 있으면 대량으로 본다.
   const bulk = recentEvents.some((e) => e.count >= BULK_READ_COUNT);
   if (bulk) factors.push('bulk_read');
@@ -99,8 +96,9 @@ export async function decide(request) {
 
   // 규칙 step_up_required(7단계): 평소와 다른 접속 신호가 둘 이상 겹치면 추가 확인을 요청한다.
   // 지역 하나만으로 영구 차단하지 않고, 어떤 신호가 겹쳤는지 사유를 남긴다.
+  // 시각·네트워크·대량읽기가 함께일 때만(세 축 모두) 추가 확인으로 보낸다. 정상 조합은 허용한다.
   const factors = unusualFactors(signals, recentEvents);
-  if (factors.length >= 2) {
+  if (factors.length >= 3) {
     // 이미 최근에 재인증을 마친 요청이면(계약의 stepUp으로 확인) 다시 추가 확인을 요구하지 않는다.
     // 엔진이 step_up 뒤 새 로그인으로 다시 보낸 요청을 여기서 통과시키는 자리다.
     if (recentlyVerified(request)) {
