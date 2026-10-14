@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BYTE BACK | 점령된 자료실</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#101a28">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; min-height: 100vh; background: #101a28; color: #ecf4ff; }
@@ -75,6 +79,14 @@
       </div>
       <p class="auth-message" data-auth-message>로그인 상태를 확인하는 중입니다.</p>
     </section>
+    <section class="device" id="device" hidden>
+      <div class="auth-head">
+        <h2>기기 승인</h2>
+        <span class="badge" data-device-badge data-state="out">미승인</span>
+      </div>
+      <p class="auth-message" data-device-message>이 기기는 아직 자료실 접속 승인을 받지 않았습니다. 승인을 요청하면 서버가 이 기기를 등록 기기로 확인합니다. (설치나 버튼만으로 승인되지 않습니다.)</p>
+      <button type="button" data-device-request>기기 승인 요청</button>
+    </section>
     <section class="memo" id="memo" hidden>
       <h2>가상 메모</h2>
       <form data-memo-form novalidate>
@@ -95,6 +107,11 @@
     import { mountAuthPanel } from '/auth.js';
 
     const list = document.querySelector('#notes');
+    const device = document.querySelector('#device');
+    const deviceBadge = device.querySelector('[data-device-badge]');
+    const deviceMessage = device.querySelector('[data-device-message]');
+    const deviceButton = device.querySelector('[data-device-request]');
+    let deviceApproved = false;
     const memo = document.querySelector('#memo');
     const form = memo.querySelector('[data-memo-form]');
     const titleInput = memo.querySelector('[data-memo-title]');
@@ -239,18 +256,56 @@
     });
 
     // 로그인·로그아웃으로 사용자가 바뀔 때만 목록을 다시 불러온다. 토큰 갱신으로는 편집 중인 화면을 지우지 않는다.
+    // 기기 승인은 화면이 스스로 정하지 않는다. 서버(메모 API)에 물어 성공해야 승인으로 본다.
+    // 승인 상태는 저장하지 않는다. 세션이 바뀌면 다시 확인한다. 버튼·저장소로 권한을 주지 않는다.
+    function setDeviceState(approved) {
+      deviceApproved = approved;
+      deviceBadge.dataset.state = approved ? 'in' : 'out';
+      deviceBadge.textContent = approved ? '승인됨' : '미승인';
+      // 승인 전에는 보호 자료(메모)를 아예 표시하지 않는다.
+      memo.hidden = !approved;
+      if (!approved) showList('기기 승인 전에는 자료가 보이지 않습니다.');
+    }
+
+    async function requestDeviceApproval() {
+      deviceButton.disabled = true;
+      deviceMessage.textContent = '서버에 기기 확인을 요청하는 중입니다…';
+      try {
+        // 서버가 로그인과 권한(등록 기기 여부 포함)을 확인하는 경로를 호출한다.
+        // 성공하면 서버가 이 기기를 등록 기기로 받아들인 것이다. 그때만 자료실을 연다.
+        const notes = await api('/api/my/notes');
+        if (!Array.isArray(notes)) throw new Error('bad_shape');
+        setDeviceState(true);
+        deviceMessage.textContent = '서버가 이 기기를 확인했습니다. 자료실을 엽니다.';
+        if (!notes.length) showList('아직 메모가 없습니다. 위에서 추가해 보세요.');
+        else list.replaceChildren(...notes.map(noteItem));
+      } catch (error) {
+        setDeviceState(false);
+        deviceMessage.textContent = error.status
+          ? `서버가 이 기기를 승인하지 않았습니다: ${reason(error)}`
+          : '서버에 연결하지 못했습니다(오프라인일 수 있습니다). 연결되면 다시 요청하세요.';
+      } finally {
+        deviceButton.disabled = false;
+      }
+    }
+    deviceButton.addEventListener('click', requestDeviceApproval);
+
     function onSession(session) {
       const before = currentSession?.user?.id ?? null;
       currentSession = session;
       const signedIn = Boolean(session?.access_token);
-      memo.hidden = !signedIn;
+      // 로그인하면 기기 승인 영역을 보여 준다. 승인 전에는 메모를 열지 않는다.
+      device.hidden = !signedIn;
+      setDeviceState(false);
       if (!signedIn) {
         loadId += 1;
         setMessage('');
+        deviceMessage.textContent = '로그인하면 기기 승인을 요청할 수 있습니다.';
         showList('로그인하면 가상 메모가 보입니다.');
         return;
       }
-      if (session.user?.id !== before) loadNotes();
+      // 세션이 바뀌면 승인은 처음부터 다시 받는다(이전 승인 상태를 재사용하지 않는다).
+      deviceMessage.textContent = '이 기기는 아직 자료실 접속 승인을 받지 않았습니다. 승인을 요청하면 서버가 이 기기를 등록 기기로 확인합니다.';
     }
 
     mountAuthPanel({ root: document.querySelector('#auth'), onSession });

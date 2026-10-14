@@ -2,7 +2,7 @@
 
 이 저장소는 1단계에서 학생 본인이 GitHub 저장소와 Vercel 배포를 만드는 출발점입니다. 시작 틀에 들어 있던 메모 네 건은 가상 자료이며 2단계에서 DB로 옮겼습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
-## 현재 상태: 10단계 「백업에서 자료실을 되살립니다」
+## 현재 상태: 11단계 「나만의 접속 앱을 완성합니다」
 
 6단계까지의 자료 보호와 기기 등록 규칙은 그대로이고, 7단계에서 판정기 `src/decider.mjs`에 평소와 다른 접속을 다시 확인하는 규칙 `step_up_required`를 더했습니다(아래 "7단계" 절).
 
@@ -16,7 +16,7 @@
   - 소유자 검사: 한 건 요청은 DB의 `owner_id`가 검증된 사용자 ID와 같을 때만 처리하고, 남의 메모는 없는 메모와 같은 404입니다. 수정 본문에 내 ID가 아닌 `owner_id`가 있으면 403으로 거부합니다. 추가할 때 `owner_id`는 검증된 ID로만 저장합니다.
 - **DB 직접 접근 차단:** 테이블 `vault_notes`에서 `PUBLIC`·`anon`·`authenticated`의 직접 권한(열 단위 포함)을 모두 회수했습니다. 서버 함수가 쓰는 서버 전용 키의 역할 `service_role`만 읽기·추가·수정·삭제 권한을 갖습니다. RLS는 켜져 있고 정책 네 개(`auth.uid() = owner_id`)도 그대로 두었지만, 권한이 없어서 지금은 쓰이지 않고 나중에 실수로 권한이 열려도 한 번 더 막는 장치입니다. 테이블과 권한을 만든 SQL 파일은 가상 메모 문장이 들어 있어 이 저장소에 두지 않았습니다.
 - **원본 자료 API 주소:** `aleph.config.json`의 `originalApiUrl`은 Supabase Data API의 메모 테이블 주소(`…/rest/v1/vault_notes`)이고 쿼리·해시·인증 정보가 없습니다. 이 주소를 공개용(anon) 키나 로그인 토큰으로 직접 부르면 `401`/`403`과 `permission denied`(코드 42501)로 거부됩니다. 배포할 때 빌드가 만드는 `/aleph.json`(배포 식별 파일)에도 5단계부터 같은 `originalApiUrl`이, 3단계부터 `allowedRoutes`(허용 경로 여덟 개)가 들어가고, 값이 없거나 모양이 틀리면 빌드가 멈춥니다. 심판은 배포된 `/aleph.json`에서 이 값들을 읽습니다.
-- `aleph.config.json`은 `step` 10이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
+- `aleph.config.json`은 `step` 11이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
 - 서버 함수는 `SUPABASE_URL`, 로그인에 쓰는 공개용(publishable) 키 `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`를 **Vercel 환경변수**에서만 읽습니다. 세 값은 Vercel 프로젝트 Settings → Environment Variables 입력란에 직접 넣고(키는 Sensitive로), 코드·Git·채팅·로그·브라우저 파일에는 쓰지 않습니다. `SUPABASE_PUBLISHABLE_KEY`가 없으면 로그인이 `server_not_configured`로 실패하고 화면에 "로그인 서버 설정이 아직 없습니다"가 보입니다.
 - `data.json`과 `public/data.json`은 `{ "notes": [] }`입니다. 배포된 `/data.json`에는 메모가 없습니다.
 - 첫 화면을 포함한 모든 응답에 `vercel.json`의 `headers`로 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`를 붙입니다. 서버 함수 응답에는 코드가 `nosniff`를 따로 붙입니다. 화면의 인라인 스크립트와 스타일 때문에 `Content-Security-Policy`는 아직 쓰지 않습니다.
@@ -51,6 +51,34 @@
 - 기존 가상 메모 네 건은 A 계정, 시험 메모 한 건은 B 계정의 `owner_id`로 연결했고 소유자가 없는 행은 0건입니다.
 - B로 로그인해 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404`였고 A의 메모는 그대로였습니다. 화면에서 A는 네 건, B는 한 건만 보였습니다.
 - 소유자 변경(403) 거부는 `attack-check`가 배포에서 확인했습니다(두 사용자 토큰을 넘겨 실행한 결과).
+
+## 11단계 「나만의 접속 앱을 완성합니다」
+
+화면(`public/`)에 설치형 웹앱 설정과 기기 승인 화면을 붙였습니다. 서버의 보호 규칙은 그대로이고, 화면은 승인 상태를 **표시만** 합니다.
+
+### 설치형 웹앱 (제작 1)
+- `public/manifest.json`: 앱 이름(최부장의 비밀창고), 설명(로그인·기기 승인 안내와 오프라인에서는 자료가 보이지 않음), `display: standalone`, 테마색, 아이콘(`public/icon.svg`).
+- `index.html`에 `manifest`·`theme-color`·아이콘을 연결했습니다. 접속 프로그램을 따로 만들거나 설치하지 않습니다.
+- 설치됐다는 사실을 기기 확인이 끝난 것으로 쓰지 않습니다. 설치 여부와 승인 여부는 별개입니다.
+
+### 기기 승인 화면 (제작 2)
+- 로그인해도 바로 자료를 열지 않고 기기 승인 영역을 먼저 보여 줍니다. **승인 전에는 보호 자료(메모)를 표시하지 않습니다.**
+- "기기 승인 요청" 버튼은 서버의 보호 경로(`GET /api/my/notes`)를 호출합니다. 서버가 로그인과 권한(등록 기기 여부 포함)을 확인해 성공으로 응답할 때만 승인으로 보고 자료실을 엽니다.
+- 승인은 화면이 스스로 정하지 않습니다. 기기 키를 브라우저 저장소에 넣지 않고, 승인 버튼을 눌렀다는 사실만으로 권한을 주지 않습니다. 세션이 바뀌면 승인을 처음부터 다시 받습니다.
+- 서버가 거부하거나 연결이 안 되면(오프라인 등) 자료를 숨기고 안내만 보여 줍니다.
+
+6~10단계의 서버 규칙(판정기·탐지기·자료 API·백업/복원)은 그대로 유지됩니다. 새 화면에서도 기존 보호 요청의 정상·거부 결과는 서버가 결정합니다.
+
+확인 순서 (로컬):
+
+1. `npm run test:r5` — 전체 통과(화면 변경이 기존 보호 시험을 깨지 않는지).
+2. 배포 후 화면(실측): 로그아웃 상태엔 자료 없음. 로그인 후 승인 전에는 메모 숨김. "기기 승인 요청" → 서버가 확인하면 메모 표시, 거부/오프라인이면 숨김 유지.
+3. 설치(실측): 브라우저에서 앱 설치가 뜨는지(manifest 인식). 설치해도 승인 전에는 자료가 보이지 않는지.
+
+**11단계 확인 기록 (2026-10-14, 직접 실행한 것만 적었습니다)**
+- `test:r5` 전체 통과. manifest JSON 유효, 기기 승인 영역·버튼 핸들러 추가 확인.
+- 승인 로직: 로그인 후 승인 전 메모 숨김, 승인 요청이 서버 응답으로만 열림(버튼·저장소로 권한 안 줌) 확인.
+- 배포 서버에서의 설치·승인 실측: 미실행(배포 후 브라우저에서 확인).
 
 ## 10단계 「백업에서 자료실을 되살립니다」
 
