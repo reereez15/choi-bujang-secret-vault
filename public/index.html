@@ -211,7 +211,7 @@
     async function loadNotes() {
       const id = ++loadId;
       try {
-        const notes = await api('/api/notes');
+        const notes = await api('/api/my/notes');
         if (id !== loadId) return;
         if (!Array.isArray(notes)) throw new Error('bad_shape');
         if (!notes.length) showList('아직 메모가 없습니다. 위에서 추가해 보세요.');
@@ -226,7 +226,7 @@
       if (!titleInput.value.trim()) { setMessage('제목을 입력하세요.', 'error'); return; }
       submitButton.disabled = true;
       try {
-        await api('/api/notes', { method: 'POST', payload: { title: titleInput.value, body: bodyInput.value } });
+        await api('/api/my/notes', { method: 'POST', payload: { title: titleInput.value, body: bodyInput.value } });
         titleInput.value = '';
         bodyInput.value = '';
         setMessage('추가했습니다.', 'ok');

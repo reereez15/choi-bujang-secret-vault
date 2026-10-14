@@ -107,10 +107,14 @@ export async function decide(request) {
     if (z.zone === null) {
       return response(request, 'deny', 'zone_unknown_route', ['zone_policy']);
     }
-    // (2) 메모 구역: 단건·목록 모두 통과시킨다. 현재 /notes GET 목록은 API가 본인 것만 반환하므로
-    //     '내 목록'으로 본다(소유자 비교는 API가 담당). /my/notes·/notes 단건·목록 모두 허용.
+    // (2) 메모 구역: ID 없는 전체 목록(/notes)은 여러 사람 자료를 여는 경로로 보고 거부한다.
+    //     내 목록은 /my/notes만 허용한다. 내 단건(/notes/:id, /my/notes/:id)은 허용한다.
+    //     소유자 비교는 자료 API가 담당한다.
     if (z.zone === 'memo') {
-      // 통과 (아래 6·7단계 규칙으로 이어짐)
+      if (z.kind === 'list' && z.pathPart === '/notes') {
+        return response(request, 'deny', 'memo_list_forbidden', ['zone_policy']);
+      }
+      // 그 밖(내 목록 /my/notes, 단건)은 아래 6·7단계 규칙으로 이어진다.
     }
     // (3) 반 공지: 읽기(GET)만 허용, 쓰기(POST/PUT/PATCH/DELETE)는 누구에게나 거부.
     else if (z.zone === 'notice') {

@@ -88,7 +88,7 @@ test('step 2 build identity records the step and still rejects bad input', () =>
 
 test('screen reads the server function and the public files hold no notes', () => {
   const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.ok(page.includes("api('/api/notes'") && page.includes('`/api/notes/${note.id}`'));
+  assert.ok(page.includes("api('/api/my/notes'") && page.includes('`/api/notes/${note.id}`'));
   assert.ok(!page.includes('/data.json'));
   assert.ok(!/SUPABASE|sb_secret_/u.test(page));
   for (const file of ['../data.json', '../public/data.json']) {
@@ -537,12 +537,12 @@ async function send(handler, { method = 'GET', headers = {}, query, body } = {})
 const add = async (h, user, note) => (await send(h.api.collection, { method: 'POST', headers: bearer(user), body: note })).body.id;
 
 test('allowedRoutes lists the real GET POST PUT DELETE paths and each one exists', async () => {
-  const expected = ['GET /api/notes', 'POST /api/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id',
+  const expected = ['GET /api/my/notes', 'POST /api/my/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id',
     'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/auth/logout'];
   assert.deepEqual([...realConfig.allowedRoutes].sort(), [...expected].sort());
   const h = apiHarness();
   const auth = createAuthApi({ env: {}, log() {}, loadConfig: () => { throw new Error('none'); } });
-  const handlers = { '/api/notes': h.api.collection, '/api/auth/login': auth.login, '/api/auth/refresh': auth.refresh, '/api/auth/logout': auth.logout };
+  const handlers = { '/api/my/notes': h.api.collection, '/api/notes': h.api.collection, '/api/auth/login': auth.login, '/api/auth/refresh': auth.refresh, '/api/auth/logout': auth.logout };
   for (const route of realConfig.allowedRoutes) {
     const [method, path] = route.split(' ');
     const handler = handlers[path] ?? h.api.item;
@@ -555,7 +555,7 @@ test('allowedRoutes lists the real GET POST PUT DELETE paths and each one exists
     assert.equal((await send(handlers[path], { method: 'GET' })).headers.Allow, 'POST', `${path}는 POST만 받아야 합니다`);
   }
   const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
-  for (const file of ['api/notes.js', 'api/notes/[id].js', 'api/auth/logout.js']) {
+  for (const file of ['api/notes.js', 'api/notes/[id].js', 'api/my/notes.js', 'api/auth/logout.js']) {
     assert.equal(vercel.functions[file].includeFiles, 'aleph.config.json');
     assert.ok(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').includes('loadConfig'));
   }
@@ -1252,6 +1252,6 @@ test('the first screen response carries security headers from vercel.json', () =
   assert.equal(headers['x-content-type-options'], 'nosniff');
   assert.equal(headers['x-frame-options'], 'DENY');
   assert.equal(headers['referrer-policy'], 'no-referrer');
-  assert.deepEqual(Object.keys(vercel.functions).sort(), ['api/auth/logout.js', 'api/notes.js', 'api/notes/[id].js'], '서버 함수 설정이 빠지면 안 됩니다');
+  assert.deepEqual(Object.keys(vercel.functions).sort(), ['api/auth/logout.js', 'api/my/notes.js', 'api/notes.js', 'api/notes/[id].js'], '서버 함수 설정이 빠지면 안 됩니다');
   assert.equal(vercel.outputDirectory, 'public');
 });

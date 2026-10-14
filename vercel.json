@@ -7,6 +7,9 @@
     "api/notes.js": {
       "includeFiles": "aleph.config.json"
     },
+    "api/my/notes.js": {
+      "includeFiles": "aleph.config.json"
+    },
     "api/notes/[id].js": {
       "includeFiles": "aleph.config.json"
     },
