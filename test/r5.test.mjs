@@ -82,8 +82,8 @@ test('step 2 build identity records the step and still rejects bad input', () =>
   const original = 'https://abcdefghij.supabase.co/rest/v1/vault_notes';
   const routes = ['GET /api/notes'];
   assert.equal(deploymentIdentity(env, { ...config, step: 5, originalApiUrl: original, allowedRoutes: routes }).step, 5);
-  assert.equal(deploymentIdentity(env, { ...config, step: 8, originalApiUrl: original, allowedRoutes: routes }).step, 8);
-  assert.throws(() => deploymentIdentity(env, { ...config, step: 9, originalApiUrl: original, allowedRoutes: routes }));
+  assert.equal(deploymentIdentity(env, { ...config, step: 9, originalApiUrl: original, allowedRoutes: routes }).step, 9);
+  assert.throws(() => deploymentIdentity(env, { ...config, step: 10, originalApiUrl: original, allowedRoutes: routes }));
 });
 
 test('screen reads the server function and the public files hold no notes', () => {
@@ -986,8 +986,8 @@ test('step 3 attack check reports a real hole, an unreachable server and a norma
   }
 });
 
-test('the saved config matches the stage 8 implementation', () => {
-  assert.equal(realConfig.step, 8);
+test('the saved config matches the stage 9 implementation', () => {
+  assert.equal(realConfig.step, 9);
   assert.equal(realConfig.repoUrl, 'https://github.com/reereez15/choi-bujang-secret-vault');
   assert.equal(realConfig.publicAppUrl, 'https://choi-bujang-secret-vault-qkh6.vercel.app');
   // 5단계: 원본 자료 API(Supabase Data API의 메모 테이블) 주소. HTTPS이고 쿼리·해시·인증 정보가 없다.
@@ -1202,7 +1202,7 @@ test('the deployment identity carries originalApiUrl from stage 5 on and refuses
   }
   const real = deploymentIdentity(env, realConfig);
   assert.equal(real.originalApiUrl, realConfig.originalApiUrl);
-  assert.equal(real.step, 8);
+  assert.equal(real.step, 9);
 });
 
 test('the real build writes originalApiUrl into public/aleph.json', () => {
@@ -1217,7 +1217,7 @@ test('the real build writes originalApiUrl into public/aleph.json', () => {
     PATH: process.env.PATH, VERCEL_GIT_PROVIDER: 'github', VERCEL_GIT_REPO_OWNER: 'student-a',
     VERCEL_GIT_REPO_SLUG: 'aleph-defense', VERCEL_GIT_COMMIT_SHA: 'b'.repeat(40), VERCEL_URL: 'student-defense-123.vercel.app' } });
   const published = JSON.parse(readFileSync(join(root, 'public/aleph.json'), 'utf8'));
-  assert.equal(published.step, 8);
+  assert.equal(published.step, 9);
   assert.deepEqual(published.allowedRoutes, realConfig.allowedRoutes);
   assert.ok(published.allowedRoutes.length >= 1);
   assert.equal(published.originalApiUrl, realConfig.originalApiUrl);
