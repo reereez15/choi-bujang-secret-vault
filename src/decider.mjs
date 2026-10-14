@@ -54,24 +54,34 @@ function readRecentEvents(request) {
 const STEP_UP_MAX_AGE = 900;
 function recentlyVerified(request) {
   const su = request?.stepUp;
-  return su?.verified === true
-    && Number.isInteger(su.authAgeSeconds)
-    && su.authAgeSeconds >= 0
-    && su.authAgeSeconds <= STEP_UP_MAX_AGE;
+  if (su?.verified !== true) return false;      // 재인증을 하지 않았으면 인정하지 않는다
+  const age = su.authAgeSeconds;
+  // 나이가 숫자로 함께 오면 범위(0~900초)를 확인한다. 너무 오래됐으면 인정하지 않는다.
+  if (typeof age === 'number' && Number.isFinite(age)) return age >= 0 && age <= STEP_UP_MAX_AGE;
+  // 나이가 없거나(null·누락) 숫자가 아니면, verified가 참이므로 최근 재인증으로 인정한다.
+  return true;
 }
 
 // 평소와 다른 접속의 신호를 센다. 신뢰할 수 있는(judge_fixture) 접속 정보일 때만 본다.
+// 특정 단어에만 맞추지 않고 "평소로 알려진 값이 아니면 이상"으로 판단한다.
 // 어느 하나로 영구 차단하지 않고, 둘 이상 겹칠 때만 추가 확인(step_up)을 요청한다.
-const NIGHT_HOURS = new Set([0, 1, 2, 3, 4, 5]); // 한밤~새벽
-const BULK_READ_COUNT = 10;                      // 짧은 시간에 이만큼 이상 읽으면 대량으로 본다
+const USUAL_REGIONS = new Set(['local', 'home', 'usual', 'known']);   // 평소 지역
+const USUAL_NETWORKS = new Set(['usual', 'home', 'known', 'trusted']); // 평소 네트워크
+const DAYTIME_START = 6;   // 06:00~21:59를 평소 시간대로 본다
+const DAYTIME_END = 22;    // 그 밖(밤~새벽)은 평소와 다른 시각
+const BULK_READ_COUNT = 10; // 짧은 시간에 이만큼 이상 읽으면 대량으로 본다
 function unusualFactors(signals, recentEvents) {
   if (!signals.analyzable) return [];           // 출처가 불명확하면 접속 정보로 판단하지 않는다
   const factors = [];
-  if (signals.network === 'unusual') factors.push('network');        // 처음 보는 네트워크
-  if (signals.region === 'foreign') factors.push('region');          // 평소와 다른 지역
-  if (signals.hour !== null && NIGHT_HOURS.has(signals.hour)) factors.push('hour'); // 평소와 다른 시각
-  const bulk = recentEvents.some((e) => e.kind === 'risk_signal' && e.count >= BULK_READ_COUNT);
-  if (bulk) factors.push('bulk_read');                               // 갑자기 많은 자료 읽기
+  // 네트워크: 평소 목록에 없으면 처음 보는 네트워크로 본다(값이 있을 때만).
+  if (signals.network !== null && !USUAL_NETWORKS.has(signals.network)) factors.push('network');
+  // 지역: 평소 목록에 없으면 평소와 다른 지역으로 본다(값이 있을 때만).
+  if (signals.region !== null && !USUAL_REGIONS.has(signals.region)) factors.push('region');
+  // 시각: 낮 시간대(06~21시)를 벗어나면 평소와 다른 시각으로 본다.
+  if (signals.hour !== null && (signals.hour < DAYTIME_START || signals.hour >= DAYTIME_END)) factors.push('hour');
+  // 대량 읽기: 종류 이름에 매이지 않고, 최근 사건 중 count가 큰 것이 있으면 대량으로 본다.
+  const bulk = recentEvents.some((e) => e.count >= BULK_READ_COUNT);
+  if (bulk) factors.push('bulk_read');
   return factors;
 }
 
