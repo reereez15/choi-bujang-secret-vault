@@ -70,6 +70,7 @@ function classify(request) {
   const OLD_NOTES_LIST = /^\/notes$/;                     // 옛 전체 목록(거부 대상)
   const NOTICE = /^\/announcements(\/:id)?$/;             // 반 공지
   const INSTRUCTOR = /^\/instructor(\/[^/]+)?$/;          // 강사 자료
+  const RESTORE = /^\/restore\/note$/;                     // 메모 복원 경로(메서드는 아래서 POST만 인정)
 
   let zone = null;        // 'memo' | 'notice' | 'instructor' | null(미등록 경로)
   let kind = 'unknown';   // 'item' | 'list'
@@ -78,6 +79,10 @@ function classify(request) {
   else if (OLD_NOTES_LIST.test(pathPart)) { zone = 'memo'; kind = 'list'; }
   else if (NOTICE.test(pathPart)) { zone = 'notice'; kind = /:id/.test(pathPart) ? 'item' : 'list'; }
   else if (INSTRUCTOR.test(pathPart)) { zone = 'instructor'; kind = 'item'; }
+  else if (RESTORE.test(pathPart)) {
+    // 복원은 POST만 인정한다. 그 밖 메서드는 미등록 경로로 두어 거부되게 한다.
+    if (method === 'POST') { zone = 'memo'; kind = 'item'; }
+  }
   // service가 note류인데 경로가 안 맞으면(예: 기능 경로) zone은 null로 남겨 거부되게 한다.
 
   return { present: true, method, pathPart, isWrite, zone, kind };

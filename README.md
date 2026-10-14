@@ -2,7 +2,7 @@
 
 이 저장소는 1단계에서 학생 본인이 GitHub 저장소와 Vercel 배포를 만드는 출발점입니다. 시작 틀에 들어 있던 메모 네 건은 가상 자료이며 2단계에서 DB로 옮겼습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
-## 현재 상태: 9단계 「도플갱어를 찾고 권한을 거둡니다」
+## 현재 상태: 10단계 「백업에서 자료실을 되살립니다」
 
 6단계까지의 자료 보호와 기기 등록 규칙은 그대로이고, 7단계에서 판정기 `src/decider.mjs`에 평소와 다른 접속을 다시 확인하는 규칙 `step_up_required`를 더했습니다(아래 "7단계" 절).
 
@@ -16,7 +16,7 @@
   - 소유자 검사: 한 건 요청은 DB의 `owner_id`가 검증된 사용자 ID와 같을 때만 처리하고, 남의 메모는 없는 메모와 같은 404입니다. 수정 본문에 내 ID가 아닌 `owner_id`가 있으면 403으로 거부합니다. 추가할 때 `owner_id`는 검증된 ID로만 저장합니다.
 - **DB 직접 접근 차단:** 테이블 `vault_notes`에서 `PUBLIC`·`anon`·`authenticated`의 직접 권한(열 단위 포함)을 모두 회수했습니다. 서버 함수가 쓰는 서버 전용 키의 역할 `service_role`만 읽기·추가·수정·삭제 권한을 갖습니다. RLS는 켜져 있고 정책 네 개(`auth.uid() = owner_id`)도 그대로 두었지만, 권한이 없어서 지금은 쓰이지 않고 나중에 실수로 권한이 열려도 한 번 더 막는 장치입니다. 테이블과 권한을 만든 SQL 파일은 가상 메모 문장이 들어 있어 이 저장소에 두지 않았습니다.
 - **원본 자료 API 주소:** `aleph.config.json`의 `originalApiUrl`은 Supabase Data API의 메모 테이블 주소(`…/rest/v1/vault_notes`)이고 쿼리·해시·인증 정보가 없습니다. 이 주소를 공개용(anon) 키나 로그인 토큰으로 직접 부르면 `401`/`403`과 `permission denied`(코드 42501)로 거부됩니다. 배포할 때 빌드가 만드는 `/aleph.json`(배포 식별 파일)에도 5단계부터 같은 `originalApiUrl`이, 3단계부터 `allowedRoutes`(허용 경로 여덟 개)가 들어가고, 값이 없거나 모양이 틀리면 빌드가 멈춥니다. 심판은 배포된 `/aleph.json`에서 이 값들을 읽습니다.
-- `aleph.config.json`은 `step` 9이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
+- `aleph.config.json`은 `step` 10이고, `identityProvider`(발급자·공개키 주소·audience, 공개 값만)와 `allowedRoutes`(`GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`), `originalApiUrl`을 구현과 맞춰 적었습니다.
 - 서버 함수는 `SUPABASE_URL`, 로그인에 쓰는 공개용(publishable) 키 `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`를 **Vercel 환경변수**에서만 읽습니다. 세 값은 Vercel 프로젝트 Settings → Environment Variables 입력란에 직접 넣고(키는 Sensitive로), 코드·Git·채팅·로그·브라우저 파일에는 쓰지 않습니다. `SUPABASE_PUBLISHABLE_KEY`가 없으면 로그인이 `server_not_configured`로 실패하고 화면에 "로그인 서버 설정이 아직 없습니다"가 보입니다.
 - `data.json`과 `public/data.json`은 `{ "notes": [] }`입니다. 배포된 `/data.json`에는 메모가 없습니다.
 - 첫 화면을 포함한 모든 응답에 `vercel.json`의 `headers`로 `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`를 붙입니다. 서버 함수 응답에는 코드가 `nosniff`를 따로 붙입니다. 화면의 인라인 스크립트와 스타일 때문에 `Content-Security-Policy`는 아직 쓰지 않습니다.
@@ -51,6 +51,40 @@
 - 기존 가상 메모 네 건은 A 계정, 시험 메모 한 건은 B 계정의 `owner_id`로 연결했고 소유자가 없는 행은 0건입니다.
 - B로 로그인해 A의 "과제" 메모 id로 GET·PUT·DELETE를 보냈을 때 모두 `404`였고 A의 메모는 그대로였습니다. 화면에서 A는 네 건, B는 한 건만 보였습니다.
 - 소유자 변경(403) 거부는 `attack-check`가 배포에서 확인했습니다(두 사용자 토큰을 넘겨 실행한 결과).
+
+## 10단계 「백업에서 자료실을 되살립니다」
+
+침해 전 검증한 안전 정책과 가상 메모 사본으로 자료실을 되살립니다. 실제 운영 정책·DB는 건드리지 않고, 복원할 범위를 실행 전에 보여 줍니다.
+
+### 안전 정책 백업/복원 (제작 1·2)
+- 안전 정책 사본: `policy-backup.json` (검증된 `allowedRoutes` + 무결성 해시). 사본이 없거나 해시 검증이 실패하면 중단합니다.
+- 차이 보기(실행 전): `npm run policy:diff` — 복원할 버전과 바뀔 범위(allowedRoutes의 추가·제거)를 보여 줍니다.
+- 되돌리기: `npm run policy:restore -- --apply` — `aleph.config.json`의 `allowedRoutes`만 안전 정책으로 교체합니다. 주소·발급자·`step` 등 다른 설정과 감사 이력은 보존합니다. `git reset --hard`는 쓰지 않습니다.
+
+### 가상 메모 한 건 복원 (제작 3)
+- 서비스·경로: `POST /api/restore/note` (요청 본문 `{ "id": "<복원할 메모 ID>" }`)
+- 비공개 가상 메모 사본: `memo-backup.json` (시험 계정 B의 메모, ID·소유자(가명)·제목·내용 해시).
+- 동작: 로그인 사용자만 호출하고, 사본에서 지정한 ID 한 건을 찾아 **ID·소유자·내용 해시를 대조**한 뒤, 그 메모의 소유자가 로그인 사용자일 때만 복원합니다. 이미 있으면 보존(덮어쓰지 않음), 없으면 되살립니다. 다른 메모와 감사 기록은 건드리지 않습니다.
+- 소유자 연결: 사본의 가명 소유자(`ownerSubject`)를 서버 전용 환경변수 `RESTORE_OWNER_<SUBJECT>`로 실제 사용자 번호와 잇습니다. 없으면 복원을 거부합니다. 본문·헤더의 `owner_id`·`role`은 신뢰하지 않습니다.
+- 판정기도 `POST /api/restore/note`만 메모 구역으로 허용하고, 다른 메서드(GET·DELETE 등)는 거부합니다.
+
+### 복구 뒤 재실행 순서 (제작 4)
+복원이 끝나면 아래 순서로 1~9단계의 정상·금지 요청을 다시 확인합니다. 실행하지 않은 항목은 "미실행"으로 둡니다(결과를 꾸미지 않습니다).
+
+1. 정책 복원 확인: `npm run policy:diff`가 "변경 없음"인지(안전 정책과 같아졌는지).
+2. 로컬 규칙 시험: `npm run test:r5`(전체), `npm run decider:test`(6·7·8·복원 경로), `npm run detect:test`(9단계), `npm run fixture:7`(7단계).
+3. 배포 후 자료 접근(실측): A 로그인 → 내 목록(`GET /api/my/notes`)·내 메모 조회 정상. B로 A 메모 조회·수정·삭제·목록 → 거부(404/목록 0건). (8단계)
+4. 구역 금지(실측): 메모 전체 목록(`GET /api/notes`)·공지 쓰기·강사 경로 → 거부. (8단계)
+5. 원본 API 직접 호출 → 401/403. (5단계)
+6. 메모 한 건 복원(실측): `POST /api/restore/note`로 B 메모 복원 후, 복원된 메모의 ID·소유자·내용 해시가 사본과 같은지 확인. (10단계)
+
+미실행(심판 환경에서 확인): 운영 엔진을 통한 정상 쓰기, 실제 강사 접속, 엔진이 검증한 사건 전달과 실제 회수 집행, 배포 서버에서의 위 실측 항목(토큰·키가 있을 때만 실행).
+
+**10단계 확인 기록 (2026-10-14, 직접 실행한 것만 적었습니다)**
+- `policy:diff`로 바뀔 범위 표시, 침해 시뮬 후 `policy:restore --apply`로 allowedRoutes만 복원되고 다른 설정 보존 확인. 사본 없음·해시 실패 시 중단 확인.
+- 복원 API: B 소유자 복원 성공·ID/소유자/내용 해시 일치, 타인 복원 403, 비로그인 401, 없는 ID 404, GET 405 확인.
+- `test:r5` 전체 통과, `decider:test`·`detect:test`·`fixture:7` 통과.
+- 배포 서버에서의 실측(3~6)과 운영 엔진 경로: 미실행.
 
 ## 9단계 「도플갱어를 찾고 권한을 거둡니다」
 
