@@ -73,8 +73,11 @@ if (mode === '--diff' || mode === undefined) {
   if (!d.changed) {
     process.stdout.write('\n되돌릴 것이 없어 파일을 바꾸지 않았습니다.\n');
   } else {
-    // allowedRoutes만 안전 정책으로 교체한다. 나머지 키는 그대로 둔다.
-    config.allowedRoutes = [...backup.policy.allowedRoutes];
+    // 파일을 바꾸기 직전에 사본을 "다시" 읽어 검증한다. 없거나 검증 실패면 멈추고 아무것도 바꾸지 않는다.
+    const recheck = loadVerifiedBackup();
+    if (!recheck) { process.stderr.write('재검증 실패로 복원을 멈췄습니다. 정책을 바꾸지 않았습니다.\n'); process.exit(1); }
+    // allowedRoutes만 안전 정책으로 교체한다. 나머지 키는 그대로 둔다(운영 정책·감사 이력 보존).
+    config.allowedRoutes = [...recheck.policy.allowedRoutes];
     writeFileSync(CONFIG, JSON.stringify(config, null, 2) + '\n');
     process.stdout.write('\n안전 정책으로 되돌렸습니다(allowedRoutes만 교체, 나머지 보존).\n');
   }

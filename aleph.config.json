@@ -21,5 +21,5 @@
     "POST /api/restore/note"
   ],
   "originalApiUrl": "https://swqfpoldcwoyldaixhqq.supabase.co/rest/v1/vault_notes",
-  "restoreRoute": null
+  "restoreRoute": "POST /api/restore/note"
 }

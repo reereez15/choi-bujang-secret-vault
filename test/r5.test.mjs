@@ -996,7 +996,7 @@ test('the saved config matches the stage 10 implementation', () => {
   const original = new URL(realConfig.originalApiUrl);
   assert.deepEqual([original.protocol, original.search, original.hash, original.username, original.password], ['https:', '', '', '', '']);
   assert.ok(!/key|token|secret/iu.test(realConfig.originalApiUrl));
-  assert.equal(realConfig.restoreRoute, null);
+  assert.equal(realConfig.restoreRoute, 'POST /api/restore/note');
   assert.ok(realConfig.judgeIssuer.endsWith('/defense/judge'));
 });
 
