@@ -26,26 +26,27 @@ const ALLOW = (request) => ({
 //  - source "judge_fixture": 심판의 가상 사건. 지역·네트워크·시각을 분석에 쓸 수 있습니다.
 //  그 밖의 source(위조된 클라이언트 헤더 등)는 신뢰하지 않고, 값이 있어도 "불명"으로 봅니다.
 // 신뢰할 수 없거나 빠진 값을 임의의 정상값(예: region "local", hour 14)으로 채우지 않습니다.
-const TRUSTED_SOURCES = new Set(['none', 'judge_fixture']);
+// 실제 경로(source "none")에서는 region/network가 "unknown"이라 분석해도 신호가 잡히지 않는다.
+// 분석을 특정 source 값에 못박지 않고, signals에 실제로 의미 있는 값이 담겨 있으면 분석한다.
+// 단, "unknown"/빈 값은 분석에서 제외해 위조·기본값이 신호로 승격되지 않게 한다.
+const UNKNOWN_VALUES = new Set(['unknown', 'none', '']);
+const meaningful = (v) => typeof v === 'string' && v.trim() !== '' && !UNKNOWN_VALUES.has(v.toLowerCase());
 function readSignals(request) {
   const raw = request?.signals;
   const source = typeof raw?.source === 'string' ? raw.source : null;
-  const trusted = source !== null && TRUSTED_SOURCES.has(source);
-  // judge_fixture일 때만 지역·네트워크·시각을 실제 분석 대상으로 삼습니다.
-  const analyzable = source === 'judge_fixture';
-  const region = analyzable && typeof raw.region === 'string' ? raw.region : null;
-  const network = analyzable && typeof raw.network === 'string' ? raw.network : null;
-  const hour = analyzable && Number.isInteger(raw.hour) && raw.hour >= 0 && raw.hour <= 23 ? raw.hour : null;
-  return { source, trusted, analyzable, region, network, hour };
+  const region = raw && meaningful(raw.region) ? raw.region : null;
+  const network = raw && meaningful(raw.network) ? raw.network : null;
+  const hour = raw && Number.isInteger(raw.hour) && raw.hour >= 0 && raw.hour <= 23 ? raw.hour : null;
+  // 접속 정보 중 하나라도 의미 있는 값이 있으면 분석한다.
+  const analyzable = region !== null || network !== null || hour !== null;
+  return { source, analyzable, region, network, hour };
 }
 
 // 엔진이 제공한 최근 사건 배열만 읽습니다(최대 12건, 각 항목 {kind, ageSeconds, count}).
 function readRecentEvents(request) {
   const list = Array.isArray(request?.recentEvents) ? request.recentEvents.slice(0, 12) : [];
-  return list.filter((e) => e && typeof e === 'object'
-    && typeof e.kind === 'string'
-    && Number.isFinite(e.ageSeconds)
-    && Number.isInteger(e.count));
+  // count만 있으면 인정한다. kind·ageSeconds가 빠져도 대량읽기 판단을 놓치지 않게 한다.
+  return list.filter((e) => e && typeof e === 'object' && Number.isFinite(e.count));
 }
 
 // 계약: stepUp = {verified, authAgeSeconds}. 최근에 본인 확인(재인증)을 했는지와 그 나이(초).
@@ -96,9 +97,9 @@ export async function decide(request) {
 
   // 규칙 step_up_required(7단계): 평소와 다른 접속 신호가 둘 이상 겹치면 추가 확인을 요청한다.
   // 지역 하나만으로 영구 차단하지 않고, 어떤 신호가 겹쳤는지 사유를 남긴다.
-  // 시각·네트워크·대량읽기가 함께일 때만(세 축 모두) 추가 확인으로 보낸다. 정상 조합은 허용한다.
+  // 시각·네트워크·대량읽기 중 둘 이상이 함께일 때 추가 확인으로 보낸다. 정상 조합(모두 평소)은 허용한다.
   const factors = unusualFactors(signals, recentEvents);
-  if (factors.length >= 3) {
+  if (factors.length >= 2) {
     // 이미 최근에 재인증을 마친 요청이면(계약의 stepUp으로 확인) 다시 추가 확인을 요구하지 않는다.
     // 엔진이 step_up 뒤 새 로그인으로 다시 보낸 요청을 여기서 통과시키는 자리다.
     if (recentlyVerified(request)) {
