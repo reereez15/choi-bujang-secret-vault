@@ -2,7 +2,7 @@
   "schema": "aleph.ops.summary.v1",
   "generatedFrom": "artifacts/submission.json",
   "step": 12,
-  "commit": "be700a3fd0ad60e37436adfbdba50046dcee17c9",
+  "commit": "c58edb3c96b97169bbbf4247caf4a3616a6d8b92",
   "repoUrl": "https://github.com/reereez15/choi-bujang-secret-vault",
   "policyRules": [
     "device_registered",
@@ -41,123 +41,123 @@
     {
       "id": "anonymous_list_read",
       "expected": "로그인 없이 GET /api/notes를 부르면 자료 없이 401로 거부됨",
-      "observed": "메모 내용 없이 거부됨 (HTTP 401, 응답 코드 unauthorized)",
-      "status": "measured"
+      "observed": "not_run",
+      "status": "not_run"
     },
     {
       "id": "anonymous_create",
       "expected": "로그인 없이 POST /api/notes를 부르면 만들지 않고 401로 거부됨",
-      "observed": "미실행: 격리 환경에서 POST 요청은 보낼 수 없어 실행하지 않았습니다.",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "anonymous_item_read",
       "expected": "로그인 없이 GET /api/notes/:id를 부르면 자료 없이 401로 거부됨",
-      "observed": "메모 내용 없이 거부됨 (HTTP 401, 응답 코드 unauthorized)",
-      "status": "measured"
+      "observed": "not_run",
+      "status": "not_run"
     },
     {
       "id": "anonymous_update",
       "expected": "로그인 없이 PUT /api/notes/:id를 부르면 고치지 않고 401로 거부됨",
-      "observed": "미실행: 격리 환경에서 PUT 요청은 보낼 수 없어 실행하지 않았습니다.",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "anonymous_delete",
       "expected": "로그인 없이 DELETE /api/notes/:id를 부르면 지우지 않고 401로 거부됨",
-      "observed": "미실행: 격리 환경에서 DELETE 요청은 보낼 수 없어 실행하지 않았습니다.",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "forged_login_rejected",
       "expected": "위조한 토큰과 role=admin·사용자 번호 값을 보내면 자료 없이 401로 거부됨",
-      "observed": "메모 내용 없이 거부됨 (HTTP 401, 응답 코드 unauthorized)",
-      "status": "measured"
+      "observed": "not_run",
+      "status": "not_run"
     },
     {
       "id": "static_data_json_read",
       "expected": "공개 /data.json에 가상 메모가 보이지 않음",
-      "observed": "비로그인 요청에서 /data.json에 가상 메모가 보이지 않음 (HTTP 200)",
-      "status": "measured"
+      "observed": "not_run",
+      "status": "not_run"
     },
     {
       "id": "api_key_not_exposed",
       "expected": "/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음",
-      "observed": "응답 본문과 헤더에 키로 보이는 값이 없음",
-      "status": "measured"
+      "observed": "not_run",
+      "status": "not_run"
     },
     {
       "id": "normal_login_read",
       "expected": "정상 로그인 토큰으로 GET /api/notes를 부르면 본인 메모 배열이 응답됨",
-      "observed": "미실행: 정상 로그인 요청은 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "owner_cross_read",
       "expected": "다른 로그인 사용자(B)가 A의 메모를 GET /api/notes/:id로 읽으려 하면 404로 거부됨",
-      "observed": "미실행: 서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "owner_cross_update",
       "expected": "B가 A의 메모를 PUT /api/notes/:id로 고치려 하면 404로 거부됨",
-      "observed": "미실행: 서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "owner_cross_delete",
       "expected": "B가 A의 메모를 DELETE /api/notes/:id로 지우려 하면 404로 거부됨",
-      "observed": "미실행: 서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "owner_list_isolation",
       "expected": "B의 GET /api/notes 목록에는 A의 메모가 들어 있지 않음",
-      "observed": "미실행: 서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "owner_change_rejected",
       "expected": "A가 자기 메모의 owner_id를 다른 값으로 바꾸려는 PUT은 403으로 거부됨",
-      "observed": "미실행: 서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "owner_note_intact",
       "expected": "위 시도가 끝난 뒤에도 A는 자기 메모를 원래 제목 그대로 읽을 수 있음",
-      "observed": "미실행: 서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "original_api_anon_read",
       "expected": "로그인 없이(anon 키만) 원본 자료 API를 쿼리 없이 GET으로 부르면 메모 없이 401 또는 403으로 거부됨",
-      "observed": "미실행: anon 점검에 쓸 공개용 키가 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_ANON_KEY 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "original_api_anon_insert",
       "expected": "anon 키로 원본 자료 API에 POST(추가)하면 만들지 않고 401 또는 403으로 거부됨",
-      "observed": "미실행: anon 점검에 쓸 공개용 키가 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_ANON_KEY 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "original_api_anon_modify",
       "expected": "anon 키로 원본 자료 API에 PATCH(수정)와 DELETE(삭제)를 보내면 둘 다 401 또는 403으로 거부됨",
-      "observed": "미실행: anon 점검에 쓸 공개용 키가 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_ANON_KEY 없음).",
+      "observed": "not_run",
       "status": "not_run"
     },
     {
       "id": "original_api_user_read",
       "expected": "정상 로그인 토큰(A)을 붙여도 원본 자료 API를 직접 GET으로 부르면 메모 없이 401 또는 403으로 거부됨",
-      "observed": "미실행: anon 점검에 쓸 공개용 키가 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_ANON_KEY 없음).",
+      "observed": "not_run",
       "status": "not_run"
     }
   ],
   "totals": {
     "total": 19,
-    "measured": 5,
-    "notRun": 14
+    "measured": 0,
+    "notRun": 19
   },
   "engine": "ALEPH SDP 엔진",
-  "generatedAt": "2026-10-15T08:16:49.558Z"
+  "generatedAt": "2026-10-15T08:32:05.930Z"
 }

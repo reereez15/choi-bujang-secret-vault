@@ -17,10 +17,10 @@ try {
   process.exit(1);
 }
 
-// 점검 하나의 상태를 정한다. observed가 "미실행"으로 시작하면 미실행, 아니면 실측.
+// 점검 하나의 상태를 정한다. observed가 정확히 'not_run'이면 미실행, HTTP 상태가 적혀 있으면 실측.
 function statusOf(observed) {
-  const text = typeof observed === 'string' ? observed : '';
-  if (/^미실행/.test(text) || /보내지 못|실행하지 않|not run/i.test(text)) return 'not_run';
+  const text = typeof observed === 'string' ? observed.trim() : '';
+  if (text === 'not_run' || /^미실행|not run/i.test(text)) return 'not_run';
   return 'measured';
 }
 

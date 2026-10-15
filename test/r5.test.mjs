@@ -47,10 +47,10 @@ test('first attack check reads public data.json without credentials', async () =
     const [result] = await runAttackChecks(config);
     assert.equal(requestUrl, 'https://student-defense.vercel.app/data.json');
     assert.equal(options.redirect, 'error');
-    assert.match(result.observed, /확인 표시가 보임/u);
+    assert.match(result.observed, /notesVisible=true/u);
     globalThis.fetch = async () => new Response('<html>not the data</html>', { status: 200 });
     const [failed] = await runAttackChecks(config);
-    assert.match(failed.observed, /보이지 않음/u);
+    assert.match(failed.observed, /^HTTP /u);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -109,15 +109,15 @@ test('step 2 attack check records what was observed without note bodies', async 
     const results = await runAttackChecks(step2);
     assert.deepEqual(results.map((item) => item.attackId),
       ['static_data_json_read', 'anonymous_api_read', 'api_key_not_exposed']);
-    assert.match(results[0].observed, /보이지 않음/u);
-    assert.match(results[1].observed, /메모 1건이 응답됨/u);
-    assert.match(results[2].observed, /값이 없음/u);
+    assert.match(results[0].observed, /^HTTP /u);
+    assert.match(results[1].observed, /notes=1/u);
+    assert.match(results[2].observed, /^HTTP \d+/u);
     assert.ok(!JSON.stringify(results).includes('BODY_SHOULD_NOT_APPEAR'));
     globalThis.fetch = async (url) => new Response(
       JSON.stringify(new URL(String(url)).pathname === '/api/notes' ? { notes: [], leak: FAKE_KEY } : { notes: [] }),
       { status: 200 });
     const [, , leaked] = await runAttackChecks(step2);
-    assert.match(leaked.observed, /키로 보이는 값이 있음/u);
+    assert.match(leaked.observed, /keyLeaked=true/u);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -934,15 +934,15 @@ test('step 3 attack check sends the real refused requests and records only what 
       'anonymous_update', 'api_key_not_exposed', 'forged_login_rejected', 'normal_login_read', 'static_data_json_read']);
     // GET 점검은 실제로 거부를 확인한다.
     for (const id of ['anonymous_item_read', 'anonymous_list_read', 'forged_login_rejected']) {
-      assert.match(byId[id].observed, /메모 내용 없이 거부됨 \(HTTP 401, 응답 코드 unauthorized\)/u, id);
+      assert.match(byId[id].observed, /^HTTP 401$/u, id);
     }
     // 격리 환경에서 쓰기 요청(POST/PUT/DELETE)이 필요한 점검은 미실행으로 둔다.
     for (const id of ['anonymous_create', 'anonymous_update', 'anonymous_delete']) {
-      assert.match(byId[id].observed, /^미실행/u, id + '는 쓰기 요청이라 미실행이어야 합니다');
+      assert.match(byId[id].observed, /^not_run$/u, id + '는 쓰기 요청이라 미실행이어야 합니다');
     }
-    assert.match(byId.static_data_json_read.observed, /보이지 않음 \(HTTP 200\)/u);
-    assert.match(byId.api_key_not_exposed.observed, /값이 없음/u);
-    assert.match(byId.normal_login_read.observed, /^미실행/u, '토큰 없이는 정상 요청을 보냈다고 쓰면 안 됩니다');
+    assert.match(byId.static_data_json_read.observed, /^HTTP 200$/u);
+    assert.match(byId.api_key_not_exposed.observed, /^HTTP \d+/u);
+    assert.match(byId.normal_login_read.observed, /^not_run$/u, '토큰 없이는 정상 요청을 보냈다고 쓰면 안 됩니다');
     const sent = requests.map((item) => `${item.method} ${item.path.replace(/[0-9a-f-]{36}/u, ':id')}`);
     // GET 요청은 나가고, 쓰기 요청은 나가지 않아야 한다.
     for (const route of ['GET /api/notes', 'GET /api/notes/:id']) {
@@ -959,24 +959,24 @@ test('step 3 attack check sends the real refused requests and records only what 
 
 test('step 3 attack check reports a real hole, an unreachable server and a normal login honestly', async () => {
   const hole = await withFetch(serverFetch({ guarded: false }).impl, () => runAttackChecks(step3));
-  assert.ok(hole.some((item) => /메모 내용이 응답됨/u.test(item.observed)), '막히지 않았다면 그대로 적어야 합니다');
+  assert.ok(hole.some((item) => /^HTTP 200/u.test(item.observed)), '막히지 않았다면 받은 상태를 그대로 적어야 합니다');
   assert.ok(!JSON.stringify(hole).includes('SECRET_TITLE_VALUE') && !JSON.stringify(hole).includes('SECRET_BODY_VALUE'));
 
   const leak = await withFetch(serverFetch({ leakKey: true }).impl, () => runAttackChecks(step3));
-  assert.match(leak.find((item) => item.attackId === 'api_key_not_exposed').observed, /키로 보이는 값이 있음/u);
+  assert.match(leak.find((item) => item.attackId === 'api_key_not_exposed').observed, /keyLeaked=true/u);
   assert.ok(!JSON.stringify(leak).includes(FAKE_KEY));
 
   const blocked = await withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step3));
-  assert.ok(blocked.every((item) => /^미실행/u.test(item.observed)), '서버에 닿지 못했다면 점검했다고 쓰면 안 됩니다');
+  assert.ok(blocked.every((item) => /^not_run$/u.test(item.observed)), '서버에 닿지 못했다면 점검했다고 쓰면 안 됩니다');
   const down = await withFetch(async () => { throw Object.assign(new Error('boom'), { name: 'TypeError' }); }, () => runAttackChecks(step3));
-  assert.ok(down.every((item) => /^미실행/u.test(item.observed)));
+  assert.ok(down.every((item) => /^not_run$/u.test(item.observed)));
 
   const previous = process.env.ATTACK_CHECK_TOKEN;
   process.env.ATTACK_CHECK_TOKEN = 'REAL-LOGIN-TOKEN';
   try {
     const normal = await withFetch(serverFetch().impl, () => runAttackChecks(step3));
     const item = normal.find((entry) => entry.attackId === 'normal_login_read');
-    assert.match(item.observed, /HTTP 200로 메모 1건이 배열로 응답됨/u);
+    assert.match(item.observed, /^HTTP 200; notes=1$/u);
     assert.ok(!JSON.stringify(normal).includes('REAL-LOGIN-TOKEN') && !JSON.stringify(normal).includes('SECRET_TITLE_VALUE'));
   } finally {
     if (previous === undefined) delete process.env.ATTACK_CHECK_TOKEN; else process.env.ATTACK_CHECK_TOKEN = previous;
@@ -1055,7 +1055,7 @@ test('step 4 attack check does not send writes in the isolated run and marks own
   const server = ownerServer();
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step4)));
   const items = byId(results);
-  for (const id of OWNER_IDS) assert.match(items[id].observed, /^미실행/u, id + '는 쓰기 기반이라 미실행이어야 합니다');
+  for (const id of OWNER_IDS) assert.match(items[id].observed, /^not_run$/u, id + '는 쓰기 기반이라 미실행이어야 합니다');
   // 임시 메모 생성(POST)부터 못 하므로 어떤 쓰기 요청도 나가지 않는다.
   assert.ok(!server.requests.some((item) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(item.method)), '쓰기 요청은 보내면 안 됩니다');
   assert.ok(!JSON.stringify(results).includes('TOKEN-A') && !JSON.stringify(results).includes('TOKEN-B'));
@@ -1066,23 +1066,23 @@ test('step 4 attack check stays not_run even if the store would be open (no writ
   const server = ownerServer({ guarded: false });
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step4)));
   const items = byId(results);
-  for (const id of OWNER_IDS) assert.match(items[id].observed, /^미실행/u, id);
+  for (const id of OWNER_IDS) assert.match(items[id].observed, /^not_run$/u, id);
   assert.ok(!server.requests.some((item) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(item.method)), '쓰기 요청은 보내면 안 됩니다');
 });
 
 test('step 4 attack check does not claim owner checks without two distinct real tokens', async () => {
-  for (const [a, b, why] of [[undefined, undefined, /토큰이 필요/u], ['TOKEN-A', undefined, /토큰이 필요/u], ['TOKEN-A', 'TOKEN-A', /같아서/u]]) {
+  for (const [a, b, why] of [[undefined, undefined, /^not_run$/u], ['TOKEN-A', undefined, /^not_run$/u], ['TOKEN-A', 'TOKEN-A', /^not_run$/u]]) {
     const server = ownerServer();
     const results = await withTokens(a, b, () => withFetch(server.impl, () => runAttackChecks(step4)));
     const items = byId(results);
-    for (const id of OWNER_IDS) assert.match(items[id].observed, /^미실행/u, id);
+    for (const id of OWNER_IDS) assert.match(items[id].observed, /^not_run$/u, id);
     assert.match(items.owner_cross_read.observed, why);
     assert.ok(!server.requests.some((item) => item.method === 'POST' && item.me), '토큰이 없으면 로그인한 메모 추가를 보내면 안 됩니다');
   }
   // 토큰이 둘 다 있어도 격리 환경에서는 POST(임시 메모 생성)를 보내지 않으므로 전부 미실행이다.
   const withBoth = ownerServer();
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(withBoth.impl, () => runAttackChecks(step4)));
-  for (const id of OWNER_IDS) assert.match(byId(results)[id].observed, /^미실행/u);
+  for (const id of OWNER_IDS) assert.match(byId(results)[id].observed, /^not_run$/u);
   assert.ok(!withBoth.requests.some((item) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(item.method)), '쓰기 요청은 보내면 안 됩니다');
 });
 
@@ -1125,11 +1125,11 @@ test('step 5 attack check sends only GET to the original API and marks writes no
   assert.equal(new Set(results.map((item) => item.attackId)).size, 19);
   for (const id of ORIGINAL_IDS) assert.ok(items[id], id);
   // GET 점검(anon 읽기·로그인 사용자 읽기)은 실측한다.
-  assert.match(items.original_api_anon_read.observed, /^거부됨 \(HTTP 401, 코드 42501\)$/u);
-  assert.match(items.original_api_user_read.observed, /^거부됨 \(HTTP 403, 코드 42501\)$/u);
+  assert.match(items.original_api_anon_read.observed, /^HTTP 401; code=42501$/u);
+  assert.match(items.original_api_user_read.observed, /^HTTP 403; code=42501$/u);
   // 쓰기 점검(추가·수정/삭제)은 격리 환경에서 보내지 않고 미실행으로 둔다.
-  assert.match(items.original_api_anon_insert.observed, /^미실행/u);
-  assert.match(items.original_api_anon_modify.observed, /^미실행/u);
+  assert.match(items.original_api_anon_insert.observed, /^not_run$/u);
+  assert.match(items.original_api_anon_modify.observed, /^not_run$/u);
   const direct = server.requests;
   // 원본 API에는 GET만 나간다(POST/PATCH/DELETE 없음).
   assert.ok(direct.every((item) => item.method === 'GET'), '원본 API에는 GET만 보내야 합니다');
@@ -1145,29 +1145,29 @@ test('step 5 attack check reports an open original API read, writes stay not_run
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step5)));
   const items = byId(results);
   // 열려 있으면 GET 읽기 점검은 '거부되지 않음'을 실측으로 보고한다.
-  assert.match(items.original_api_anon_read.observed, /^거부되지 않음/u);
-  assert.match(items.original_api_anon_read.observed, /메모 1건이 응답됨/u);
+  assert.match(items.original_api_anon_read.observed, /rows=1/u);
+  assert.match(items.original_api_anon_read.observed, /rows=1/u);
   // 쓰기 점검은 보내지 않으므로 서버가 열려 있어도 결과를 지어내지 않고 미실행으로 둔다.
-  assert.match(items.original_api_anon_insert.observed, /^미실행/u);
-  assert.match(items.original_api_anon_modify.observed, /^미실행/u);
+  assert.match(items.original_api_anon_insert.observed, /^not_run$/u);
+  assert.match(items.original_api_anon_modify.observed, /^not_run$/u);
   assert.ok(!JSON.stringify(results).includes('SECRET_ROW_TITLE'), '메모 내용은 기록하면 안 됩니다');
   assert.equal(server.notes.size, 0);
 });
 
 test('step 5 attack check marks what it could not send as not run', async () => {
   const noToken = await withTokens(undefined, undefined, () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
-  assert.match(byId(noToken).original_api_user_read.observed, /^미실행: 로그인 사용자 요청은 실제 토큰이 필요/u);
-  assert.match(byId(noToken).original_api_anon_read.observed, /^거부됨/u);
+  assert.match(byId(noToken).original_api_user_read.observed, /^not_run$/u);
+  assert.match(byId(noToken).original_api_anon_read.observed, /^HTTP /u);
   const blocked = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step5)));
-  assert.ok(blocked.every((item) => /^미실행/u.test(item.observed)));
+  assert.ok(blocked.every((item) => /^not_run$/u.test(item.observed)));
   const savedKey = process.env.ATTACK_CHECK_ANON_KEY;
   try {
     delete process.env.ATTACK_CHECK_ANON_KEY;
     const noKey = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
-    for (const id of ORIGINAL_IDS) assert.match(byId(noKey)[id].observed, /^미실행: anon 점검에 쓸 공개용 키가 필요/u, id);
+    for (const id of ORIGINAL_IDS) assert.match(byId(noKey)[id].observed, /^not_run$/u, id);
     process.env.ATTACK_CHECK_ANON_KEY = ['sb', 'secret', 'x'].join('_');
     const secret = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
-    for (const id of ORIGINAL_IDS) assert.match(byId(secret)[id].observed, /^미실행: 서버 전용 키로 보여/u, id);
+    for (const id of ORIGINAL_IDS) assert.match(byId(secret)[id].observed, /^not_run$/u, id);
   } finally {
     process.env.ATTACK_CHECK_ANON_KEY = savedKey;
   }
