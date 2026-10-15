@@ -30,8 +30,16 @@ async function readBody(response) {
   return { text, data };
 }
 
+// 격리 환경에서는 공개 HTTPS 주소로 보내는 GET·HEAD만 됩니다.
+// 쓰기 요청(POST·PUT·PATCH·DELETE)은 보내지 않고 미실행(not_run)으로 기록합니다.
+const SAFE_METHODS = new Set(['GET', 'HEAD']);
 // 요청을 보내고 결과만 돌려준다. 배포 서버에 닿지 못했거나 중간 차단 장치가 대신 답했다면 점검한 것으로 세지 않는다.
 async function attempt(app, path, options) {
+  const method = (options?.method ?? 'GET').toUpperCase();
+  if (!SAFE_METHODS.has(method)) {
+    // 격리 환경에서 쓸 수 없는 쓰기 요청이므로 보내지 않는다. 임의로 통과 처리하지 않는다.
+    return { unreached: `격리 환경에서 ${method} 요청은 보낼 수 없어 실행하지 않았습니다` };
+  }
   let response;
   try {
     response = await request(app, path, options);
