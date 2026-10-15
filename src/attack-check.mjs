@@ -81,7 +81,21 @@ async function runStepThree(config, app) {
     { method: 'DELETE' });
 
   // 서명되지 않은 가짜 토큰과 role=admin 같은 위조 값. 검사하는 쪽이 발급자에게 물어 거부해야 한다.
-  const b64 = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  // 격리 실행기에서는 node:buffer를 쓸 수 없다. 가짜 토큰용 base64url 인코딩만 순수 JS로 만든다.
+  // (이 값은 서명 없는 가짜 토큰이라 서버가 거부해야 하는 입력이다. 실제 비밀값이 아니다.)
+  const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const toBase64Url = (bytes) => {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+      const a = bytes[i], b = i + 1 < bytes.length ? bytes[i + 1] : 0, c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      const n = (a << 16) | (b << 8) | c;
+      out += B64_CHARS[(n >> 18) & 63] + B64_CHARS[(n >> 12) & 63];
+      out += i + 1 < bytes.length ? B64_CHARS[(n >> 6) & 63] : '';
+      out += i + 2 < bytes.length ? B64_CHARS[n & 63] : '';
+    }
+    return out;
+  };
+  const b64 = (value) => toBase64Url(new TextEncoder().encode(JSON.stringify(value)));
   const forged = `${b64({ alg: 'ES256', typ: 'JWT' })}.${b64({ iss: config.identityProvider?.issuer ?? 'forged',
     sub: randomUUID(), aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 600 })}.c2ln`;
   refused('forged_login_rejected', '위조한 토큰과 role=admin·사용자 번호 값을 보내면 자료 없이 401로 거부됨', '/api/notes',
