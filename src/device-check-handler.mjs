@@ -27,7 +27,7 @@ export function createDeviceCheckApi({
     try {
       // 1) 서버가 로그인 토큰을 검증한다. 화면이 보낸 승인·역할 값은 신뢰하지 않는다.
       let identity;
-      try { identity = await getVerifier().verify(req.headers?.authorization); }
+      try { identity = await getVerifier()(req.headers?.authorization); }
       catch { identity = null; }
       if (!identity || typeof identity.userId !== 'string' || !identity.userId) {
         return res.status(401).json({ error: 'unauthorized', approved: false });
