@@ -95,7 +95,24 @@ async function runStepThree(config, app) {
     }
     return out;
   };
-  const b64 = (value) => toBase64Url(new TextEncoder().encode(JSON.stringify(value)));
+  // 격리 실행기에는 TextEncoder가 없을 수 있다. 문자열을 UTF-8 바이트로 바꾸는 것도 순수 JS로 한다.
+  const utf8Bytes = (str) => {
+    const bytes = [];
+    for (let i = 0; i < str.length; i += 1) {
+      let code = str.charCodeAt(i);
+      // 서러게이트 쌍(이모지 등)을 하나의 코드포인트로 합친다.
+      if (code >= 0xd800 && code <= 0xdbff && i + 1 < str.length) {
+        const next = str.charCodeAt(i + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) { code = 0x10000 + ((code - 0xd800) << 10) + (next - 0xdc00); i += 1; }
+      }
+      if (code < 0x80) bytes.push(code);
+      else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+      else if (code < 0x10000) bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+      else bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    }
+    return bytes;
+  };
+  const b64 = (value) => toBase64Url(utf8Bytes(JSON.stringify(value)));
   const forged = `${b64({ alg: 'ES256', typ: 'JWT' })}.${b64({ iss: config.identityProvider?.issuer ?? 'forged',
     sub: randomUUID(), aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 600 })}.c2ln`;
   refused('forged_login_rejected', '위조한 토큰과 role=admin·사용자 번호 값을 보내면 자료 없이 401로 거부됨', '/api/notes',
