@@ -11,7 +11,8 @@
     "fixture:7": "node scripts/fixture-7.mjs",
     "xdr:run": "node scripts/xdr-run.mjs",
     "policy:diff": "node scripts/policy-restore.mjs --diff",
-    "policy:restore": "node scripts/policy-restore.mjs"
+    "policy:restore": "node scripts/policy-restore.mjs",
+    "ops": "node scripts/build-ops.mjs"
   },
   "engines": {
     "node": ">=22"
