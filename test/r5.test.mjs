@@ -220,9 +220,7 @@ test('screen state differs between logged in and logged out, and login goes thro
   const last = h.seen.at(-1);
   assert.deepEqual(Object.keys(last).sort(), ['access_token', 'user'], '화면 쪽에는 리프레시 토큰을 넘기지 않습니다');
   assert.equal(last.access_token, 'access-1');
-  const stored = JSON.parse(h.storage.map.get('vault.session'));
-  assert.equal(stored.refresh_token, 'refresh-1');
-  assert.ok(!JSON.stringify([...h.storage.map.values()]).includes(RIGHT), '비밀번호는 저장하지 않습니다');
+  assert.equal(h.storage.map.size, 0, '토큰·세션을 브라우저 저장소에 두지 않습니다');
   assert.equal(h.timers.live().length, 1, '만료 전에 갱신하도록 타이머가 하나 걸려야 합니다');
 
   await h.panel.els.logout.fire('click');
@@ -259,30 +257,19 @@ test('failed login shows the reason, stays logged out and never prints the passw
   assert.equal(down.panel.body.dataset.auth, 'out');
 });
 
-test('a login saved in this tab is restored after reload, refreshed when nearly expired, and dropped when stale', async () => {
-  const valid = mountWith({ stored: sessionOf(7) });
-  assert.equal(valid.panel.body.dataset.auth, 'in');
-  assert.equal(valid.panel.els.message.textContent, '로그인한 상태입니다.');
-  assert.equal(valid.panel.els.who.textContent, 'tester@example.test');
-  assert.equal(valid.seen.at(-1).access_token, 'access-7');
-  assert.equal(valid.backend.calls.length, 0, '충분히 남았으면 서버에 묻지 않습니다');
+test('the browser never stores the session, so a reload starts logged out', async () => {
+  // 11단계: 토큰·세션을 브라우저 저장소에 두지 않는다. 저장된 값이 있어도 복원하지 않는다.
+  const withStored = mountWith({ stored: sessionOf(7) });
+  await withStored.mounted.ready;
+  assert.equal(withStored.panel.body.dataset.auth, 'out', '저장된 세션이 있어도 복원하지 않고 로그아웃으로 시작합니다');
 
-  const nearly = mountWith({ stored: sessionOf(8, 'tester@example.test', 5) });
-  await nearly.mounted.ready;
-  assert.equal(nearly.backend.calls[0].path, '/api/auth/refresh');
-  assert.equal(nearly.backend.calls[0].payload.refresh_token, 'refresh-8');
-  assert.equal(nearly.panel.body.dataset.auth, 'in');
-  assert.notEqual(nearly.seen.at(-1).access_token, 'access-8', '갱신된 토큰으로 바뀌어야 합니다');
-
-  const stale = mountWith({ stored: sessionOf(9, 'tester@example.test', -10), backend: authBackend({ refresh: () => reply(401, { error: 'invalid_refresh_token' }) }) });
-  await stale.mounted.ready;
-  assert.equal(stale.panel.body.dataset.auth, 'out');
-  assert.match(stale.panel.els.message.textContent, /로그인이 만료됐습니다/u);
-  assert.equal(stale.storage.map.size, 0);
-
-  const broken = mountWith({ stored: { access_token: 'x' } });
-  assert.equal(broken.panel.body.dataset.auth, 'out');
-  assert.equal(broken.storage.map.size, 0, '모양이 틀린 저장값은 지워야 합니다');
+  // 로그인해도 저장소에는 토큰이 새로 남지 않는다(메모리에만 둔다).
+  const h = mountWith();
+  const before = h.storage.map.size;
+  await logIn(h);
+  assert.equal(h.panel.body.dataset.auth, 'in');
+  assert.equal(h.storage.map.size, before, '로그인해도 저장소에 토큰을 쓰지 않습니다');
+  assert.ok(!JSON.stringify([...h.storage.map.values()]).includes('refresh-1'), '리프레시 토큰을 저장소에 두지 않습니다');
 });
 
 test('the token is refreshed before it expires, and a late refresh cannot undo a logout', async () => {
@@ -293,7 +280,7 @@ test('the token is refreshed before it expires, and a late refresh cannot undo a
   await timer.fn();
   assert.equal(h.backend.calls.at(-1).path, '/api/auth/refresh');
   assert.equal(h.seen.at(-1).access_token, 'access-2');
-  assert.equal(JSON.parse(h.storage.map.get('vault.session')).refresh_token, 'refresh-2');
+  assert.equal(h.storage.map.size, 0, '갱신 뒤에도 저장소에 토큰을 두지 않습니다');
 
   let release;
   const late = mountWith({ backend: authBackend({ refresh: () => new Promise((resolve) => { release = () => resolve(reply(200, sessionOf(99))); }) }) });
@@ -340,7 +327,9 @@ test('the browser code carries no Supabase key, SDK or project address', () => {
   const auth = readFileSync(new URL('../public/auth.js', import.meta.url), 'utf8');
   const targets = new Set([...auth.matchAll(/'(\/api\/[a-z/]+)'/gu)].map((match) => match[1]));
   assert.deepEqual([...targets].sort(), ['/api/auth/login', '/api/auth/logout', '/api/auth/refresh']);
-  assert.ok(auth.includes('sessionStorage') && !auth.includes('localStorage'));
+  // 11단계: 토큰·기기 키를 브라우저 저장소에 두지 않는다. 저장소 API를 쓰지 않는다.
+  assert.ok(!/\b(session|local)Storage\.(set|get|remove)Item\b/u.test(auth), '브라우저 저장소에 토큰을 두지 않습니다');
+  assert.ok(!/document\.cookie/u.test(auth), '쿠키에 토큰을 두지 않습니다');
 });
 
 function authHarness({ clientFor, verifier } = {}) {
@@ -537,13 +526,14 @@ async function send(handler, { method = 'GET', headers = {}, query, body } = {})
 const add = async (h, user, note) => (await send(h.api.collection, { method: 'POST', headers: bearer(user), body: note })).body.id;
 
 test('allowedRoutes lists the real GET POST PUT DELETE paths and each one exists', async () => {
-  const expected = ['GET /api/my/notes', 'POST /api/my/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id',
+  const expected = ['GET /api/device/check', 'GET /api/my/notes', 'POST /api/my/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id',
     'POST /api/restore/note', 'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/auth/logout'];
   assert.deepEqual([...realConfig.allowedRoutes].sort(), [...expected].sort());
   const h = apiHarness();
   const auth = createAuthApi({ env: {}, log() {}, loadConfig: () => { throw new Error('none'); } });
   const restoreHandler = async (req, res) => { if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({}); } return res.status(401).json({}); };
-  const handlers = { '/api/my/notes': h.api.collection, '/api/notes': h.api.collection, '/api/restore/note': restoreHandler, '/api/auth/login': auth.login, '/api/auth/refresh': auth.refresh, '/api/auth/logout': auth.logout };
+  const deviceCheckHandler = async (req, res) => { if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({}); } return res.status(401).json({}); };
+  const handlers = { '/api/device/check': deviceCheckHandler, '/api/my/notes': h.api.collection, '/api/notes': h.api.collection, '/api/restore/note': restoreHandler, '/api/auth/login': auth.login, '/api/auth/refresh': auth.refresh, '/api/auth/logout': auth.logout };
   for (const route of realConfig.allowedRoutes) {
     const [method, path] = route.split(' ');
     const handler = handlers[path] ?? h.api.item;
@@ -1253,6 +1243,6 @@ test('the first screen response carries security headers from vercel.json', () =
   assert.equal(headers['x-content-type-options'], 'nosniff');
   assert.equal(headers['x-frame-options'], 'DENY');
   assert.equal(headers['referrer-policy'], 'no-referrer');
-  assert.deepEqual(Object.keys(vercel.functions).sort(), ['api/auth/logout.js', 'api/my/notes.js', 'api/notes.js', 'api/notes/[id].js', 'api/restore/note.js'], '서버 함수 설정이 빠지면 안 됩니다');
+  assert.deepEqual(Object.keys(vercel.functions).sort(), ['api/auth/logout.js', 'api/device/check.js', 'api/my/notes.js', 'api/notes.js', 'api/notes/[id].js', 'api/restore/note.js'], '서버 함수 설정이 빠지면 안 됩니다');
   assert.equal(vercel.outputDirectory, 'public');
 });

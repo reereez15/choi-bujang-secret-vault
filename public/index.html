@@ -271,14 +271,14 @@
       deviceButton.disabled = true;
       deviceMessage.textContent = '서버에 기기 확인을 요청하는 중입니다…';
       try {
-        // 서버가 로그인과 권한(등록 기기 여부 포함)을 확인하는 경로를 호출한다.
-        // 성공하면 서버가 이 기기를 등록 기기로 받아들인 것이다. 그때만 자료실을 연다.
-        const notes = await api('/api/my/notes');
-        if (!Array.isArray(notes)) throw new Error('bad_shape');
+        // 승인 확인 전용 경로를 부른다. 이 경로는 로그인·권한만 확인하고 보호 자료는 돌려주지 않는다.
+        // 승인 전에는 자료(메모)를 아예 요청하지 않는다.
+        const result = await api('/api/device/check');
+        if (!result || result.approved !== true) throw new Error('not_approved');
+        // 서버가 이 기기를 확인한 뒤에만 자료실을 연다.
         setDeviceState(true);
         deviceMessage.textContent = '서버가 이 기기를 확인했습니다. 자료실을 엽니다.';
-        if (!notes.length) showList('아직 메모가 없습니다. 위에서 추가해 보세요.');
-        else list.replaceChildren(...notes.map(noteItem));
+        await loadNotes();
       } catch (error) {
         setDeviceState(false);
         deviceMessage.textContent = error.status

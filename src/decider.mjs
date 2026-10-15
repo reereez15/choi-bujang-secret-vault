@@ -71,6 +71,7 @@ function classify(request) {
   const NOTICE = /^\/announcements(\/:id)?$/;             // 반 공지
   const INSTRUCTOR = /^\/instructor(\/[^/]+)?$/;          // 강사 자료
   const RESTORE = /^\/restore\/note$/;                     // 메모 복원 경로(메서드는 아래서 POST만 인정)
+  const DEVICE_CHECK = /^\/device\/check$/;                 // 기기 승인 확인(로그인·권한만, 자료 없음)
 
   let zone = null;        // 'memo' | 'notice' | 'instructor' | null(미등록 경로)
   let kind = 'unknown';   // 'item' | 'list'
@@ -82,6 +83,10 @@ function classify(request) {
   else if (RESTORE.test(pathPart)) {
     // 복원은 POST만 인정한다. 그 밖 메서드는 미등록 경로로 두어 거부되게 한다.
     if (method === 'POST') { zone = 'memo'; kind = 'item'; }
+  }
+  else if (DEVICE_CHECK.test(pathPart)) {
+    // 기기 승인 확인은 GET만 인정한다(자료를 돌려주지 않는 확인 전용).
+    if (method === 'GET') { zone = 'memo'; kind = 'item'; }
   }
   // service가 note류인데 경로가 안 맞으면(예: 기능 경로) zone은 null로 남겨 거부되게 한다.
 

@@ -16,6 +16,9 @@
     "api/restore/note.js": {
       "includeFiles": "{aleph.config.json,memo-backup.json}"
     },
+    "api/device/check.js": {
+      "includeFiles": "aleph.config.json"
+    },
     "api/auth/logout.js": {
       "includeFiles": "aleph.config.json"
     }

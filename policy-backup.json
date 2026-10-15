@@ -3,6 +3,7 @@
   "verifiedAt": "2026-10-14T00:00:00.000Z",
   "policy": {
     "allowedRoutes": [
+      "GET /api/device/check",
       "GET /api/my/notes",
       "POST /api/my/notes",
       "GET /api/notes/:id",
@@ -14,5 +15,5 @@
       "POST /api/restore/note"
     ]
   },
-  "sha256": "8a80733829c14e2eb62406d236d5be55225ae5bd82cb8c8d72a2bc9402429268"
+  "sha256": "b5ed83ef7e6824711d889096f8d05ef87bba71cdaa7c9379e73f76a07ee7c8e8"
 }
