@@ -2,7 +2,7 @@
   "schema": "aleph.ops.summary.v1",
   "generatedFrom": "artifacts/submission.json",
   "step": 12,
-  "commit": "b41ebb8f1e20618115daeb46d000f71562887b84",
+  "commit": "e01faf17ed8df77d791e508cf795d711ccab6672",
   "repoUrl": "https://github.com/reereez15/choi-bujang-secret-vault",
   "policyRules": [
     "device_registered",
@@ -89,7 +89,7 @@
     {
       "id": "normal_login_read",
       "expected": "정상 로그인 토큰으로 GET /api/notes를 부르면 본인 메모 배열이 응답됨",
-      "observed": "정상 요청이 받아들여지지 않음 (HTTP 401)",
+      "observed": "HTTP 200로 메모 4건이 배열로 응답됨 (본문은 기록하지 않음)",
       "status": "measured"
     },
     {
@@ -149,7 +149,7 @@
     {
       "id": "original_api_user_read",
       "expected": "정상 로그인 토큰(A)을 붙여도 원본 자료 API를 직접 GET으로 부르면 메모 없이 401 또는 403으로 거부됨",
-      "observed": "거부됨 (HTTP 401, 코드 PGRST303)",
+      "observed": "거부됨 (HTTP 403, 코드 42501)",
       "status": "measured"
     }
   ],
@@ -159,5 +159,5 @@
     "notRun": 11
   },
   "engine": "ALEPH SDP 엔진",
-  "generatedAt": "2026-10-15T04:35:23.406Z"
+  "generatedAt": "2026-10-15T04:45:10.635Z"
 }
