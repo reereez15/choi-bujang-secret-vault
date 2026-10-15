@@ -100,8 +100,8 @@
       </form>
       <p class="hint">실제 개인정보나 비밀값은 적지 마세요. 가상 메모만 씁니다.</p>
       <p class="auth-message" data-memo-message aria-live="polite"></p>
+      <ul id="notes" aria-live="polite"></ul>
     </section>
-    <ul id="notes" aria-live="polite"><li>로그인하면 가상 메모가 보입니다.</li></ul>
   </main>
   <script type="module">
     import { mountAuthPanel } from '/auth.js';
@@ -258,13 +258,29 @@
     // 로그인·로그아웃으로 사용자가 바뀔 때만 목록을 다시 불러온다. 토큰 갱신으로는 편집 중인 화면을 지우지 않는다.
     // 기기 승인은 화면이 스스로 정하지 않는다. 서버(메모 API)에 물어 성공해야 승인으로 본다.
     // 승인 상태는 저장하지 않는다. 세션이 바뀌면 다시 확인한다. 버튼·저장소로 권한을 주지 않는다.
+    // 승인 전에는 보호 자료 영역(메모 폼·목록)을 DOM에서 아예 들어낸다. 승인 뒤에만 되돌린다.
+    // 숨김(hidden)만으로는 정적 화면에 자료 영역이 남으므로, 내용을 보관했다가 비운다.
+    const memoContent = document.createElement('template');
+    let memoEmptied = false;
+    function emptyMemo() {
+      if (memoEmptied) return;
+      while (memo.firstChild) memoContent.content.appendChild(memo.firstChild);
+      memoEmptied = true;
+    }
+    function fillMemo() {
+      if (!memoEmptied) return;
+      memo.appendChild(memoContent.content);
+      memoEmptied = false;
+    }
     function setDeviceState(approved) {
       deviceApproved = approved;
       deviceBadge.dataset.state = approved ? 'in' : 'out';
       deviceBadge.textContent = approved ? '승인됨' : '미승인';
-      // 승인 전에는 보호 자료(메모)를 아예 표시하지 않는다.
       memo.hidden = !approved;
-      if (!approved) showList('기기 승인 전에는 자료가 보이지 않습니다.');
+      // 승인 전: 메모 영역을 비운다(자료도, 작성 폼도 화면에 두지 않는다).
+      // 승인 후: 메모 영역을 되돌린다. 자료는 loadNotes()가 따로 채운다.
+      if (approved) fillMemo();
+      else { emptyMemo(); list.replaceChildren(); }
     }
 
     async function requestDeviceApproval() {
@@ -301,7 +317,6 @@
         loadId += 1;
         setMessage('');
         deviceMessage.textContent = '로그인하면 기기 승인을 요청할 수 있습니다.';
-        showList('로그인하면 가상 메모가 보입니다.');
         return;
       }
       // 세션이 바뀌면 승인은 처음부터 다시 받는다(이전 승인 상태를 재사용하지 않는다).
