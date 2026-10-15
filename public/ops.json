@@ -2,7 +2,7 @@
   "schema": "aleph.ops.summary.v1",
   "generatedFrom": "artifacts/submission.json",
   "step": 12,
-  "commit": "b3efe06455346b9224298573bd16575fdcbf8b3d",
+  "commit": "5b1bf681bae18e937c381ae8d15d4920e46bf774",
   "repoUrl": "https://github.com/reereez15/choi-bujang-secret-vault",
   "policyRules": [
     "device_registered",
@@ -159,5 +159,5 @@
     "notRun": 11
   },
   "engine": "ALEPH SDP 엔진",
-  "generatedAt": "2026-10-15T04:50:02.808Z"
+  "generatedAt": "2026-10-15T04:59:28.816Z"
 }
