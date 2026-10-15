@@ -33,6 +33,25 @@ async function readBody(response) {
 // 격리 환경에서는 공개 HTTPS 주소로 보내는 GET·HEAD만 됩니다.
 // 쓰기 요청(POST·PUT·PATCH·DELETE)은 보내지 않고 미실행(not_run)으로 기록합니다.
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
+// 응답 헤더를 [이름, 값] 쌍 배열로 안전하게 읽는다. 표준 Headers, 평범한 객체, 없음 모두 받는다.
+function readHeaderPairs(headers) {
+  if (!headers) return [];
+  try {
+    if (typeof headers.forEach === 'function' && typeof headers.has === 'function') {
+      const pairs = [];
+      headers.forEach((value, name) => pairs.push([String(name), String(value)]));
+      return pairs;
+    }
+    if (typeof headers.entries === 'function') {
+      return [...headers.entries()].map(([name, value]) => [String(name), String(value)]);
+    }
+    if (typeof headers === 'object') {
+      return Object.entries(headers).map(([name, value]) => [String(name), String(Array.isArray(value) ? value.join(', ') : value)]);
+    }
+  } catch { /* 형식을 모르면 헤더 없이 본다. */ }
+  return [];
+}
+
 // 요청을 보내고 결과만 돌려준다. 배포 서버에 닿지 못했거나 중간 차단 장치가 대신 답했다면 점검한 것으로 세지 않는다.
 async function attempt(app, path, options) {
   const method = (options?.method ?? 'GET').toUpperCase();
@@ -46,11 +65,13 @@ async function attempt(app, path, options) {
   } catch (error) {
     return { unreached: `요청이 배포 서버에 닿지 못했습니다 (${String(error?.name ?? 'Error').slice(0, 40)})` };
   }
-  if (response.headers.has('x-deny-reason')) {
+  // 응답 헤더 형식이 표준 Headers가 아니어도(격리 실행기) 예외가 나지 않게 방어적으로 읽는다.
+  const headerPairs = readHeaderPairs(response.headers);
+  if (headerPairs.some(([name]) => name.toLowerCase() === 'x-deny-reason')) {
     return { unreached: '중간 차단 장치가 대신 답해서 배포 서버가 응답하지 않았습니다' };
   }
   const { text, data } = await readBody(response);
-  const headerText = [...response.headers].map(([name, value]) => `${name}: ${value}`).join('\n');
+  const headerText = headerPairs.map(([name, value]) => `${name}: ${value}`).join('\n');
   return { response, text, data, headerText };
 }
 const notReached = (result) => `미실행: ${result.unreached}.`;
@@ -301,7 +322,7 @@ export async function runAttackChecks(config) {
   const api = await request(app, '/api/notes');
   const { text, data } = await readBody(api);
   const count = Array.isArray(data?.notes) ? data.notes.length : 0;
-  const headerText = [...api.headers].map(([name, value]) => `${name}: ${value}`).join('\n');
+  const headerText = readHeaderPairs(api.headers).map(([name, value]) => `${name}: ${value}`).join('\n');
   const leaked = KEY_SHAPE.test(text) || KEY_SHAPE.test(headerText);
   return [
     { attackId: 'static_data_json_read', expected: '공개 /data.json에 가상 메모가 보이지 않음',
