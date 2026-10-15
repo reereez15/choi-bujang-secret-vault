@@ -945,11 +945,7 @@ test('step 3 attack check sends the real refused requests and records only what 
     assert.match(byId.normal_login_read.observed, /^not_run$/u, '토큰 없이는 정상 요청을 보냈다고 쓰면 안 됩니다');
     const sent = requests.map((item) => `${item.method} ${item.path.replace(/[0-9a-f-]{36}/u, ':id')}`);
     // GET 요청은 나가고, 쓰기 요청은 나가지 않아야 한다.
-<<<<<<< HEAD
     for (const route of ['GET /api/my/notes', 'GET /api/notes/:id']) {
-=======
-    for (const route of ['GET /api/notes', 'GET /api/notes/:id']) {
->>>>>>> ef5e4a2d3598eaa2391c357977c8de122703a464
       assert.ok(sent.includes(route), `${route} 요청을 실제로 보내야 합니다`);
     }
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {

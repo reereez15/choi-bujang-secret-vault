@@ -213,11 +213,7 @@ async function runOwnerChecks(app) {
     observed.owner_cross_update = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenB, json),
       body: JSON.stringify({ title: 'attack-check 탈취', body: 'x' }) }));
     observed.owner_cross_delete = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenB) }));
-<<<<<<< HEAD
     const list = await attempt(app, '/api/my/notes', { headers: as(tokenB) });
-=======
-    const list = await attempt(app, '/api/notes', { headers: as(tokenB) });
->>>>>>> ef5e4a2d3598eaa2391c357977c8de122703a464
     observed.owner_list_isolation = list.unreached ? notReached(list)
       : list.response.status === 200 && Array.isArray(list.data) && !list.data.some((note) => note?.id === noteId)
         ? `목록에 A의 메모가 없음 (HTTP 200, 메모 ${list.data.length}건)`
