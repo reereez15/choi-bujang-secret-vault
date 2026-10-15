@@ -1,0 +1,15 @@
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'aleph.config.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/build-public.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/deployment-identity.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/attack-check.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/decider.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'test/r5.test.mjs', LF will be replaced by CRLF the next time Git touches it
+ README.md                       | 27 [32m+++++++++++++++++++++++++[m[31m--[m
+ aleph.config.json               |  2 [32m+[m[31m-[m
+ scripts/build-public.mjs        |  2 [32m+[m[31m-[m
+ scripts/deployment-identity.mjs |  2 [32m+[m[31m-[m
+ src/attack-check.mjs            |  6 [32m++++[m[31m--[m
+ src/decider.mjs                 | 24 [32m++++++++++++++++++[m[31m------[m
+ test/r5.test.mjs                | 11 [32m++++++[m[31m-----[m
+ 7 files changed, 56 insertions(+), 18 deletions(-)

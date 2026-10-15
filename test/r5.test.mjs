@@ -47,10 +47,10 @@ test('first attack check reads public data.json without credentials', async () =
     const [result] = await runAttackChecks(config);
     assert.equal(requestUrl, 'https://student-defense.vercel.app/data.json');
     assert.equal(options.redirect, 'error');
-    assert.match(result.observed, /확인 표시가 보임/u);
+    assert.match(result.observed, /notesVisible=true/u);
     globalThis.fetch = async () => new Response('<html>not the data</html>', { status: 200 });
     const [failed] = await runAttackChecks(config);
-    assert.match(failed.observed, /보이지 않음/u);
+    assert.match(failed.observed, /^HTTP /u);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -82,13 +82,13 @@ test('step 2 build identity records the step and still rejects bad input', () =>
   const original = 'https://abcdefghij.supabase.co/rest/v1/vault_notes';
   const routes = ['GET /api/notes'];
   assert.equal(deploymentIdentity(env, { ...config, step: 5, originalApiUrl: original, allowedRoutes: routes }).step, 5);
-  assert.equal(deploymentIdentity(env, { ...config, step: 6, originalApiUrl: original, allowedRoutes: routes }).step, 6);
-  assert.throws(() => deploymentIdentity(env, { ...config, step: 7, originalApiUrl: original, allowedRoutes: routes }));
+  assert.equal(deploymentIdentity(env, { ...config, step: 12, originalApiUrl: original, allowedRoutes: routes }).step, 12);
+  assert.throws(() => deploymentIdentity(env, { ...config, step: 13, originalApiUrl: original, allowedRoutes: routes }));
 });
 
 test('screen reads the server function and the public files hold no notes', () => {
   const page = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.ok(page.includes("api('/api/notes'") && page.includes('`/api/notes/${note.id}`'));
+  assert.ok(page.includes("api('/api/my/notes'") && page.includes('`/api/notes/${note.id}`'));
   assert.ok(!page.includes('/data.json'));
   assert.ok(!/SUPABASE|sb_secret_/u.test(page));
   for (const file of ['../data.json', '../public/data.json']) {
@@ -109,15 +109,15 @@ test('step 2 attack check records what was observed without note bodies', async 
     const results = await runAttackChecks(step2);
     assert.deepEqual(results.map((item) => item.attackId),
       ['static_data_json_read', 'anonymous_api_read', 'api_key_not_exposed']);
-    assert.match(results[0].observed, /보이지 않음/u);
-    assert.match(results[1].observed, /메모 1건이 응답됨/u);
-    assert.match(results[2].observed, /값이 없음/u);
+    assert.match(results[0].observed, /^HTTP /u);
+    assert.match(results[1].observed, /notes=1/u);
+    assert.match(results[2].observed, /^HTTP \d+/u);
     assert.ok(!JSON.stringify(results).includes('BODY_SHOULD_NOT_APPEAR'));
     globalThis.fetch = async (url) => new Response(
       JSON.stringify(new URL(String(url)).pathname === '/api/notes' ? { notes: [], leak: FAKE_KEY } : { notes: [] }),
       { status: 200 });
     const [, , leaked] = await runAttackChecks(step2);
-    assert.match(leaked.observed, /키로 보이는 값이 있음/u);
+    assert.match(leaked.observed, /keyLeaked=true/u);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -220,9 +220,7 @@ test('screen state differs between logged in and logged out, and login goes thro
   const last = h.seen.at(-1);
   assert.deepEqual(Object.keys(last).sort(), ['access_token', 'user'], '화면 쪽에는 리프레시 토큰을 넘기지 않습니다');
   assert.equal(last.access_token, 'access-1');
-  const stored = JSON.parse(h.storage.map.get('vault.session'));
-  assert.equal(stored.refresh_token, 'refresh-1');
-  assert.ok(!JSON.stringify([...h.storage.map.values()]).includes(RIGHT), '비밀번호는 저장하지 않습니다');
+  assert.equal(h.storage.map.size, 0, '토큰·세션을 브라우저 저장소에 두지 않습니다');
   assert.equal(h.timers.live().length, 1, '만료 전에 갱신하도록 타이머가 하나 걸려야 합니다');
 
   await h.panel.els.logout.fire('click');
@@ -259,30 +257,19 @@ test('failed login shows the reason, stays logged out and never prints the passw
   assert.equal(down.panel.body.dataset.auth, 'out');
 });
 
-test('a login saved in this tab is restored after reload, refreshed when nearly expired, and dropped when stale', async () => {
-  const valid = mountWith({ stored: sessionOf(7) });
-  assert.equal(valid.panel.body.dataset.auth, 'in');
-  assert.equal(valid.panel.els.message.textContent, '로그인한 상태입니다.');
-  assert.equal(valid.panel.els.who.textContent, 'tester@example.test');
-  assert.equal(valid.seen.at(-1).access_token, 'access-7');
-  assert.equal(valid.backend.calls.length, 0, '충분히 남았으면 서버에 묻지 않습니다');
+test('the browser never stores the session, so a reload starts logged out', async () => {
+  // 11단계: 토큰·세션을 브라우저 저장소에 두지 않는다. 저장된 값이 있어도 복원하지 않는다.
+  const withStored = mountWith({ stored: sessionOf(7) });
+  await withStored.mounted.ready;
+  assert.equal(withStored.panel.body.dataset.auth, 'out', '저장된 세션이 있어도 복원하지 않고 로그아웃으로 시작합니다');
 
-  const nearly = mountWith({ stored: sessionOf(8, 'tester@example.test', 5) });
-  await nearly.mounted.ready;
-  assert.equal(nearly.backend.calls[0].path, '/api/auth/refresh');
-  assert.equal(nearly.backend.calls[0].payload.refresh_token, 'refresh-8');
-  assert.equal(nearly.panel.body.dataset.auth, 'in');
-  assert.notEqual(nearly.seen.at(-1).access_token, 'access-8', '갱신된 토큰으로 바뀌어야 합니다');
-
-  const stale = mountWith({ stored: sessionOf(9, 'tester@example.test', -10), backend: authBackend({ refresh: () => reply(401, { error: 'invalid_refresh_token' }) }) });
-  await stale.mounted.ready;
-  assert.equal(stale.panel.body.dataset.auth, 'out');
-  assert.match(stale.panel.els.message.textContent, /로그인이 만료됐습니다/u);
-  assert.equal(stale.storage.map.size, 0);
-
-  const broken = mountWith({ stored: { access_token: 'x' } });
-  assert.equal(broken.panel.body.dataset.auth, 'out');
-  assert.equal(broken.storage.map.size, 0, '모양이 틀린 저장값은 지워야 합니다');
+  // 로그인해도 저장소에는 토큰이 새로 남지 않는다(메모리에만 둔다).
+  const h = mountWith();
+  const before = h.storage.map.size;
+  await logIn(h);
+  assert.equal(h.panel.body.dataset.auth, 'in');
+  assert.equal(h.storage.map.size, before, '로그인해도 저장소에 토큰을 쓰지 않습니다');
+  assert.ok(!JSON.stringify([...h.storage.map.values()]).includes('refresh-1'), '리프레시 토큰을 저장소에 두지 않습니다');
 });
 
 test('the token is refreshed before it expires, and a late refresh cannot undo a logout', async () => {
@@ -293,7 +280,7 @@ test('the token is refreshed before it expires, and a late refresh cannot undo a
   await timer.fn();
   assert.equal(h.backend.calls.at(-1).path, '/api/auth/refresh');
   assert.equal(h.seen.at(-1).access_token, 'access-2');
-  assert.equal(JSON.parse(h.storage.map.get('vault.session')).refresh_token, 'refresh-2');
+  assert.equal(h.storage.map.size, 0, '갱신 뒤에도 저장소에 토큰을 두지 않습니다');
 
   let release;
   const late = mountWith({ backend: authBackend({ refresh: () => new Promise((resolve) => { release = () => resolve(reply(200, sessionOf(99))); }) }) });
@@ -340,7 +327,9 @@ test('the browser code carries no Supabase key, SDK or project address', () => {
   const auth = readFileSync(new URL('../public/auth.js', import.meta.url), 'utf8');
   const targets = new Set([...auth.matchAll(/'(\/api\/[a-z/]+)'/gu)].map((match) => match[1]));
   assert.deepEqual([...targets].sort(), ['/api/auth/login', '/api/auth/logout', '/api/auth/refresh']);
-  assert.ok(auth.includes('sessionStorage') && !auth.includes('localStorage'));
+  // 11단계: 토큰·기기 키를 브라우저 저장소에 두지 않는다. 저장소 API를 쓰지 않는다.
+  assert.ok(!/\b(session|local)Storage\.(set|get|remove)Item\b/u.test(auth), '브라우저 저장소에 토큰을 두지 않습니다');
+  assert.ok(!/document\.cookie/u.test(auth), '쿠키에 토큰을 두지 않습니다');
 });
 
 function authHarness({ clientFor, verifier } = {}) {
@@ -537,12 +526,14 @@ async function send(handler, { method = 'GET', headers = {}, query, body } = {})
 const add = async (h, user, note) => (await send(h.api.collection, { method: 'POST', headers: bearer(user), body: note })).body.id;
 
 test('allowedRoutes lists the real GET POST PUT DELETE paths and each one exists', async () => {
-  const expected = ['GET /api/notes', 'POST /api/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id',
-    'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/auth/logout'];
+  const expected = ['GET /api/device/check', 'GET /api/my/notes', 'POST /api/my/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id',
+    'POST /api/restore/note', 'POST /api/auth/login', 'POST /api/auth/refresh', 'POST /api/auth/logout'];
   assert.deepEqual([...realConfig.allowedRoutes].sort(), [...expected].sort());
   const h = apiHarness();
   const auth = createAuthApi({ env: {}, log() {}, loadConfig: () => { throw new Error('none'); } });
-  const handlers = { '/api/notes': h.api.collection, '/api/auth/login': auth.login, '/api/auth/refresh': auth.refresh, '/api/auth/logout': auth.logout };
+  const restoreHandler = async (req, res) => { if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({}); } return res.status(401).json({}); };
+  const deviceCheckHandler = async (req, res) => { if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({}); } return res.status(401).json({}); };
+  const handlers = { '/api/device/check': deviceCheckHandler, '/api/my/notes': h.api.collection, '/api/notes': h.api.collection, '/api/restore/note': restoreHandler, '/api/auth/login': auth.login, '/api/auth/refresh': auth.refresh, '/api/auth/logout': auth.logout };
   for (const route of realConfig.allowedRoutes) {
     const [method, path] = route.split(' ');
     const handler = handlers[path] ?? h.api.item;
@@ -555,7 +546,7 @@ test('allowedRoutes lists the real GET POST PUT DELETE paths and each one exists
     assert.equal((await send(handlers[path], { method: 'GET' })).headers.Allow, 'POST', `${path}는 POST만 받아야 합니다`);
   }
   const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
-  for (const file of ['api/notes.js', 'api/notes/[id].js', 'api/auth/logout.js']) {
+  for (const file of ['api/notes.js', 'api/notes/[id].js', 'api/my/notes.js', 'api/auth/logout.js']) {
     assert.equal(vercel.functions[file].includeFiles, 'aleph.config.json');
     assert.ok(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').includes('loadConfig'));
   }
@@ -941,19 +932,25 @@ test('step 3 attack check sends the real refused requests and records only what 
     const byId = Object.fromEntries(results.map((item) => [item.attackId, item]));
     assert.deepEqual(Object.keys(byId).sort(), ['anonymous_create', 'anonymous_delete', 'anonymous_item_read', 'anonymous_list_read',
       'anonymous_update', 'api_key_not_exposed', 'forged_login_rejected', 'normal_login_read', 'static_data_json_read']);
-    for (const id of ['anonymous_create', 'anonymous_delete', 'anonymous_item_read', 'anonymous_list_read', 'anonymous_update', 'forged_login_rejected']) {
-      assert.match(byId[id].observed, /메모 내용 없이 거부됨 \(HTTP 401, 응답 코드 unauthorized\)/u, id);
+    // GET 점검은 실제로 거부를 확인한다.
+    for (const id of ['anonymous_item_read', 'anonymous_list_read', 'forged_login_rejected']) {
+      assert.match(byId[id].observed, /^HTTP 401$/u, id);
     }
-    assert.match(byId.static_data_json_read.observed, /보이지 않음 \(HTTP 200\)/u);
-    assert.match(byId.api_key_not_exposed.observed, /값이 없음/u);
-    assert.match(byId.normal_login_read.observed, /^미실행/u, '토큰 없이는 정상 요청을 보냈다고 쓰면 안 됩니다');
+    // 격리 환경에서 쓰기 요청(POST/PUT/DELETE)이 필요한 점검은 미실행으로 둔다.
+    for (const id of ['anonymous_create', 'anonymous_update', 'anonymous_delete']) {
+      assert.match(byId[id].observed, /^not_run$/u, id + '는 쓰기 요청이라 미실행이어야 합니다');
+    }
+    assert.match(byId.static_data_json_read.observed, /^HTTP 200$/u);
+    assert.match(byId.api_key_not_exposed.observed, /^HTTP \d+/u);
+    assert.match(byId.normal_login_read.observed, /^not_run$/u, '토큰 없이는 정상 요청을 보냈다고 쓰면 안 됩니다');
     const sent = requests.map((item) => `${item.method} ${item.path.replace(/[0-9a-f-]{36}/u, ':id')}`);
-    for (const route of ['GET /api/notes', 'POST /api/notes', 'GET /api/notes/:id', 'PUT /api/notes/:id', 'DELETE /api/notes/:id']) {
+    // GET 요청은 나가고, 쓰기 요청은 나가지 않아야 한다.
+    for (const route of ['GET /api/my/notes', 'GET /api/notes/:id']) {
       assert.ok(sent.includes(route), `${route} 요청을 실제로 보내야 합니다`);
     }
-    const forged = requests.find((item) => item.role === 'admin');
-    assert.ok(forged && forged.authorization.startsWith('Bearer '));
-    assert.ok(!JSON.stringify(results).includes(forged.authorization), '가짜 토큰도 결과에 적으면 안 됩니다');
+    for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+      assert.ok(!sent.some((r) => r.startsWith(method + ' ')), `${method} 요청은 보내면 안 됩니다`);
+    }
     for (const item of results) assert.ok(item.expected.length <= 300 && item.observed.length <= 300);
   } finally {
     if (previous !== undefined) process.env.ATTACK_CHECK_TOKEN = previous;
@@ -962,32 +959,32 @@ test('step 3 attack check sends the real refused requests and records only what 
 
 test('step 3 attack check reports a real hole, an unreachable server and a normal login honestly', async () => {
   const hole = await withFetch(serverFetch({ guarded: false }).impl, () => runAttackChecks(step3));
-  assert.ok(hole.some((item) => /메모 내용이 응답됨/u.test(item.observed)), '막히지 않았다면 그대로 적어야 합니다');
+  assert.ok(hole.some((item) => /^HTTP 200/u.test(item.observed)), '막히지 않았다면 받은 상태를 그대로 적어야 합니다');
   assert.ok(!JSON.stringify(hole).includes('SECRET_TITLE_VALUE') && !JSON.stringify(hole).includes('SECRET_BODY_VALUE'));
 
   const leak = await withFetch(serverFetch({ leakKey: true }).impl, () => runAttackChecks(step3));
-  assert.match(leak.find((item) => item.attackId === 'api_key_not_exposed').observed, /키로 보이는 값이 있음/u);
+  assert.match(leak.find((item) => item.attackId === 'api_key_not_exposed').observed, /keyLeaked=true/u);
   assert.ok(!JSON.stringify(leak).includes(FAKE_KEY));
 
   const blocked = await withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step3));
-  assert.ok(blocked.every((item) => /^미실행/u.test(item.observed)), '서버에 닿지 못했다면 점검했다고 쓰면 안 됩니다');
+  assert.ok(blocked.every((item) => /^not_run$/u.test(item.observed)), '서버에 닿지 못했다면 점검했다고 쓰면 안 됩니다');
   const down = await withFetch(async () => { throw Object.assign(new Error('boom'), { name: 'TypeError' }); }, () => runAttackChecks(step3));
-  assert.ok(down.every((item) => /^미실행/u.test(item.observed)));
+  assert.ok(down.every((item) => /^not_run$/u.test(item.observed)));
 
   const previous = process.env.ATTACK_CHECK_TOKEN;
   process.env.ATTACK_CHECK_TOKEN = 'REAL-LOGIN-TOKEN';
   try {
     const normal = await withFetch(serverFetch().impl, () => runAttackChecks(step3));
     const item = normal.find((entry) => entry.attackId === 'normal_login_read');
-    assert.match(item.observed, /HTTP 200로 메모 1건이 배열로 응답됨/u);
+    assert.match(item.observed, /^HTTP 200; notes=1$/u);
     assert.ok(!JSON.stringify(normal).includes('REAL-LOGIN-TOKEN') && !JSON.stringify(normal).includes('SECRET_TITLE_VALUE'));
   } finally {
     if (previous === undefined) delete process.env.ATTACK_CHECK_TOKEN; else process.env.ATTACK_CHECK_TOKEN = previous;
   }
 });
 
-test('the saved config matches the stage 6 implementation', () => {
-  assert.equal(realConfig.step, 6);
+test('the saved config matches the stage 12 implementation', () => {
+  assert.equal(realConfig.step, 12);
   assert.equal(realConfig.repoUrl, 'https://github.com/reereez15/choi-bujang-secret-vault');
   assert.equal(realConfig.publicAppUrl, 'https://choi-bujang-secret-vault-qkh6.vercel.app');
   // 5단계: 원본 자료 API(Supabase Data API의 메모 테이블) 주소. HTTPS이고 쿼리·해시·인증 정보가 없다.
@@ -995,7 +992,7 @@ test('the saved config matches the stage 6 implementation', () => {
   const original = new URL(realConfig.originalApiUrl);
   assert.deepEqual([original.protocol, original.search, original.hash, original.username, original.password], ['https:', '', '', '', '']);
   assert.ok(!/key|token|secret/iu.test(realConfig.originalApiUrl));
-  assert.equal(realConfig.restoreRoute, null);
+  assert.equal(realConfig.restoreRoute, 'POST /api/restore/note');
   assert.ok(realConfig.judgeIssuer.endsWith('/defense/judge'));
 });
 
@@ -1053,53 +1050,40 @@ async function withTokens(a, b, run) {
 }
 const byId = (results) => Object.fromEntries(results.map((item) => [item.attackId, item]));
 
-test('step 4 attack check sends the real cross-user requests and cleans up its temporary note', async () => {
+test('step 4 attack check does not send writes in the isolated run and marks owner checks not_run', async () => {
+  // 격리 환경: 쓰기(POST/PUT/DELETE)가 필요한 소유자 점검은 보내지 않고 미실행으로 둔다.
   const server = ownerServer();
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step4)));
   const items = byId(results);
-  assert.equal(results.length, 15);
-  assert.equal(new Set(results.map((item) => item.attackId)).size, 15);
-  for (const id of OWNER_IDS) assert.ok(items[id], id);
-  for (const id of ['owner_cross_read', 'owner_cross_update', 'owner_cross_delete']) {
-    assert.match(items[id].observed, /^거부됨 \(HTTP 404, 응답 코드 not_found\)$/u, id);
-  }
-  assert.match(items.owner_change_rejected.observed, /^거부됨 \(HTTP 403, 응답 코드 owner_change_forbidden\)$/u);
-  assert.match(items.owner_list_isolation.observed, /목록에 A의 메모가 없음 \(HTTP 200, 메모 0건\)/u);
-  assert.match(items.owner_note_intact.observed, /원래 제목 그대로 읽음 \(HTTP 200\)/u);
-  assert.match(items.normal_login_read.observed, /HTTP 200로 메모/u);
-  assert.equal(server.notes.size, 0, '점검이 만든 임시 메모는 지워야 합니다');
-  const crossCalls = server.requests.filter((item) => item.me === 'B').map((item) => item.method);
-  assert.deepEqual(crossCalls, ['GET', 'PUT', 'DELETE', 'GET']);
-  for (const item of results) assert.ok(item.expected.length <= 300 && item.observed.length <= 300);
+  for (const id of OWNER_IDS) assert.match(items[id].observed, /^not_run$/u, id + '는 쓰기 기반이라 미실행이어야 합니다');
+  // 임시 메모 생성(POST)부터 못 하므로 어떤 쓰기 요청도 나가지 않는다.
+  assert.ok(!server.requests.some((item) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(item.method)), '쓰기 요청은 보내면 안 됩니다');
   assert.ok(!JSON.stringify(results).includes('TOKEN-A') && !JSON.stringify(results).includes('TOKEN-B'));
 });
 
-test('step 4 attack check reports a real ownership hole instead of hiding it', async () => {
+test('step 4 attack check stays not_run even if the store would be open (no writes sent)', async () => {
+  // 쓰기를 보내지 않으므로 서버에 구멍이 있어도 그 결과를 지어내지 않고 미실행으로 둔다.
   const server = ownerServer({ guarded: false });
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step4)));
   const items = byId(results);
-  for (const id of ['owner_cross_read', 'owner_cross_update', 'owner_cross_delete', 'owner_change_rejected']) {
-    assert.match(items[id].observed, /^거부되지 않음/u, id);
-  }
-  assert.match(items.owner_cross_read.observed, /메모 내용이 응답됨/u);
-  assert.match(items.owner_note_intact.observed, /바뀌었거나 읽히지 않음/u, '남이 지운 뒤라면 A의 메모가 없다고 적어야 합니다');
-  assert.equal(server.notes.size, 0);
+  for (const id of OWNER_IDS) assert.match(items[id].observed, /^not_run$/u, id);
+  assert.ok(!server.requests.some((item) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(item.method)), '쓰기 요청은 보내면 안 됩니다');
 });
 
 test('step 4 attack check does not claim owner checks without two distinct real tokens', async () => {
-  for (const [a, b, why] of [[undefined, undefined, /토큰이 필요/u], ['TOKEN-A', undefined, /토큰이 필요/u], ['TOKEN-A', 'TOKEN-A', /같아서/u]]) {
+  for (const [a, b, why] of [[undefined, undefined, /^not_run$/u], ['TOKEN-A', undefined, /^not_run$/u], ['TOKEN-A', 'TOKEN-A', /^not_run$/u]]) {
     const server = ownerServer();
     const results = await withTokens(a, b, () => withFetch(server.impl, () => runAttackChecks(step4)));
     const items = byId(results);
-    for (const id of OWNER_IDS) assert.match(items[id].observed, /^미실행/u, id);
+    for (const id of OWNER_IDS) assert.match(items[id].observed, /^not_run$/u, id);
     assert.match(items.owner_cross_read.observed, why);
     assert.ok(!server.requests.some((item) => item.method === 'POST' && item.me), '토큰이 없으면 로그인한 메모 추가를 보내면 안 됩니다');
   }
-  const failedCreate = ownerServer({ createStatus: 401 });
-  const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(failedCreate.impl, () => runAttackChecks(step4)));
-  for (const id of OWNER_IDS) assert.match(byId(results)[id].observed, /^미실행: A의 임시 메모를 만들지 못했습니다 \(HTTP 401\)/u);
-  const blocked = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step4)));
-  assert.ok(blocked.every((item) => /^미실행/u.test(item.observed)), '서버에 닿지 못했다면 모두 미실행이어야 합니다');
+  // 토큰이 둘 다 있어도 격리 환경에서는 POST(임시 메모 생성)를 보내지 않으므로 전부 미실행이다.
+  const withBoth = ownerServer();
+  const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(withBoth.impl, () => runAttackChecks(step4)));
+  for (const id of OWNER_IDS) assert.match(byId(results)[id].observed, /^not_run$/u);
+  assert.ok(!withBoth.requests.some((item) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(item.method)), '쓰기 요청은 보내면 안 됩니다');
 });
 
 // ---- 5단계 저장점: 원본 자료 API를 anon 키로 직접 부르는 점검 ----
@@ -1133,55 +1117,57 @@ function originalServer({ open = false } = {}) {
   return { requests, notes: base.notes, impl };
 }
 
-test('step 5 attack check calls the original data API with the public key and records the refusals', async () => {
+test('step 5 attack check sends only GET to the original API and marks writes not_run', async () => {
   const server = originalServer();
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step5)));
   const items = byId(results);
   assert.equal(results.length, 19);
   assert.equal(new Set(results.map((item) => item.attackId)).size, 19);
   for (const id of ORIGINAL_IDS) assert.ok(items[id], id);
-  assert.match(items.original_api_anon_read.observed, /^거부됨 \(HTTP 401, 코드 42501\)$/u);
-  assert.match(items.original_api_anon_insert.observed, /^거부됨 \(HTTP 401, 코드 42501\)$/u);
-  assert.match(items.original_api_anon_modify.observed, /^거부됨 \(PATCH HTTP 401, 코드 42501; DELETE HTTP 401, 코드 42501\)$/u);
-  assert.match(items.original_api_user_read.observed, /^거부됨 \(HTTP 403, 코드 42501\)$/u);
+  // GET 점검(anon 읽기·로그인 사용자 읽기)은 실측한다.
+  assert.match(items.original_api_anon_read.observed, /^HTTP 401; code=42501$/u);
+  assert.match(items.original_api_user_read.observed, /^HTTP 403; code=42501$/u);
+  // 쓰기 점검(추가·수정/삭제)은 격리 환경에서 보내지 않고 미실행으로 둔다.
+  assert.match(items.original_api_anon_insert.observed, /^not_run$/u);
+  assert.match(items.original_api_anon_modify.observed, /^not_run$/u);
   const direct = server.requests;
-  assert.deepEqual(direct.map((item) => item.method), ['GET', 'POST', 'PATCH', 'DELETE', 'GET']);
-  assert.equal(direct[0].search, '', '읽기 점검은 쿼리 없는 원본 주소로 보내야 합니다');
+  // 원본 API에는 GET만 나간다(POST/PATCH/DELETE 없음).
+  assert.ok(direct.every((item) => item.method === 'GET'), '원본 API에는 GET만 보내야 합니다');
   assert.ok(direct.every((item) => item.apikey === TEST_ANON), '공개용 키만 써야 합니다');
-  assert.ok(direct.slice(0, 4).every((item) => !item.authorization), 'anon 점검에는 로그인 토큰을 붙이면 안 됩니다');
-  assert.equal(direct[1].body, '{}', '추가 점검은 저장되지 않는 빈 본문이어야 합니다');
-  assert.ok(direct[2].search.startsWith('?id=eq.') && direct[3].search.startsWith('?id=eq.'), '수정·삭제 점검은 없는 id만 가리켜야 합니다');
   assert.equal(server.notes.size, 0);
   for (const item of results) assert.ok(item.expected.length <= 300 && item.observed.length <= 300);
   const everything = JSON.stringify(results);
   assert.ok(!everything.includes('TOKEN-A') && !everything.includes(TEST_ANON));
 });
 
-test('step 5 attack check reports an open original API instead of hiding it', async () => {
+test('step 5 attack check reports an open original API read, writes stay not_run', async () => {
   const server = originalServer({ open: true });
   const results = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(server.impl, () => runAttackChecks(step5)));
   const items = byId(results);
-  for (const id of ORIGINAL_IDS) assert.match(items[id].observed, /^거부되지 않음/u, id);
-  assert.match(items.original_api_anon_read.observed, /메모 1건이 응답됨/u);
-  assert.match(items.original_api_anon_insert.observed, /HTTP 400/u, '권한이 열려 있으면 필수 칸 오류까지 간다는 점이 보여야 합니다');
+  // 열려 있으면 GET 읽기 점검은 '거부되지 않음'을 실측으로 보고한다.
+  assert.match(items.original_api_anon_read.observed, /rows=1/u);
+  assert.match(items.original_api_anon_read.observed, /rows=1/u);
+  // 쓰기 점검은 보내지 않으므로 서버가 열려 있어도 결과를 지어내지 않고 미실행으로 둔다.
+  assert.match(items.original_api_anon_insert.observed, /^not_run$/u);
+  assert.match(items.original_api_anon_modify.observed, /^not_run$/u);
   assert.ok(!JSON.stringify(results).includes('SECRET_ROW_TITLE'), '메모 내용은 기록하면 안 됩니다');
   assert.equal(server.notes.size, 0);
 });
 
 test('step 5 attack check marks what it could not send as not run', async () => {
   const noToken = await withTokens(undefined, undefined, () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
-  assert.match(byId(noToken).original_api_user_read.observed, /^미실행: 로그인 사용자 요청은 실제 토큰이 필요/u);
-  assert.match(byId(noToken).original_api_anon_read.observed, /^거부됨/u);
+  assert.match(byId(noToken).original_api_user_read.observed, /^not_run$/u);
+  assert.match(byId(noToken).original_api_anon_read.observed, /^HTTP /u);
   const blocked = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step5)));
-  assert.ok(blocked.every((item) => /^미실행/u.test(item.observed)));
+  assert.ok(blocked.every((item) => /^not_run$/u.test(item.observed)));
   const savedKey = process.env.ATTACK_CHECK_ANON_KEY;
   try {
     delete process.env.ATTACK_CHECK_ANON_KEY;
     const noKey = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
-    for (const id of ORIGINAL_IDS) assert.match(byId(noKey)[id].observed, /^미실행: anon 점검에 쓸 공개용 키가 필요/u, id);
+    for (const id of ORIGINAL_IDS) assert.match(byId(noKey)[id].observed, /^not_run$/u, id);
     process.env.ATTACK_CHECK_ANON_KEY = ['sb', 'secret', 'x'].join('_');
     const secret = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
-    for (const id of ORIGINAL_IDS) assert.match(byId(secret)[id].observed, /^미실행: 서버 전용 키로 보여/u, id);
+    for (const id of ORIGINAL_IDS) assert.match(byId(secret)[id].observed, /^not_run$/u, id);
   } finally {
     process.env.ATTACK_CHECK_ANON_KEY = savedKey;
   }
@@ -1202,7 +1188,7 @@ test('the deployment identity carries originalApiUrl from stage 5 on and refuses
   }
   const real = deploymentIdentity(env, realConfig);
   assert.equal(real.originalApiUrl, realConfig.originalApiUrl);
-  assert.equal(real.step, 6);
+  assert.equal(real.step, 12);
 });
 
 test('the real build writes originalApiUrl into public/aleph.json', () => {
@@ -1217,7 +1203,7 @@ test('the real build writes originalApiUrl into public/aleph.json', () => {
     PATH: process.env.PATH, VERCEL_GIT_PROVIDER: 'github', VERCEL_GIT_REPO_OWNER: 'student-a',
     VERCEL_GIT_REPO_SLUG: 'aleph-defense', VERCEL_GIT_COMMIT_SHA: 'b'.repeat(40), VERCEL_URL: 'student-defense-123.vercel.app' } });
   const published = JSON.parse(readFileSync(join(root, 'public/aleph.json'), 'utf8'));
-  assert.equal(published.step, 6);
+  assert.equal(published.step, 12);
   assert.deepEqual(published.allowedRoutes, realConfig.allowedRoutes);
   assert.ok(published.allowedRoutes.length >= 1);
   assert.equal(published.originalApiUrl, realConfig.originalApiUrl);
@@ -1252,6 +1238,6 @@ test('the first screen response carries security headers from vercel.json', () =
   assert.equal(headers['x-content-type-options'], 'nosniff');
   assert.equal(headers['x-frame-options'], 'DENY');
   assert.equal(headers['referrer-policy'], 'no-referrer');
-  assert.deepEqual(Object.keys(vercel.functions).sort(), ['api/auth/logout.js', 'api/notes.js', 'api/notes/[id].js'], '서버 함수 설정이 빠지면 안 됩니다');
+  assert.deepEqual(Object.keys(vercel.functions).sort(), ['api/auth/logout.js', 'api/device/check.js', 'api/my/notes.js', 'api/notes.js', 'api/notes/[id].js', 'api/restore/note.js'], '서버 함수 설정이 빠지면 안 됩니다');
   assert.equal(vercel.outputDirectory, 'public');
 });

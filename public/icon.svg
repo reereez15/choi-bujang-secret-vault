@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="비밀창고">
+  <rect width="512" height="512" rx="96" fill="#101a28"/>
+  <rect x="146" y="236" width="220" height="170" rx="22" fill="#8ad8df"/>
+  <path d="M196 236v-44a60 60 0 0 1 120 0v44" fill="none" stroke="#8ad8df" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="256" cy="312" r="26" fill="#0b2230"/>
+  <rect x="246" y="330" width="20" height="44" rx="10" fill="#0b2230"/>
+</svg>

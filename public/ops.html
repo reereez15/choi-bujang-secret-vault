@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>탈환 작전실 | 최부장의 비밀창고</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#101a28">
+  <style>
+    :root { color-scheme: dark; --bg:#0b141f; --panel:#101a28; --line:#1e2f42; --text:#e6eef6; --muted:#8aa0b4; --ok:#5ad6a0; --warn:#e0b15a; --accent:#8ad8df; box-sizing:border-box; }
+    *,*::before,*::after { box-sizing:inherit; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.55; padding:env(safe-area-inset-top,0) 16px env(safe-area-inset-bottom,0); }
+    main { max-width:960px; margin:0 auto; padding:24px 0 64px; }
+    h1 { font-size:1.5rem; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 24px; font-size:.9rem; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:28px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+    .card h2 { font-size:.8rem; color:var(--muted); margin:0 0 6px; font-weight:600; }
+    .card .big { font-size:1.4rem; font-weight:700; }
+    .card .big.ok { color:var(--ok); } .card .big.warn { color:var(--warn); }
+    .tag { display:inline-block; font-size:.72rem; padding:2px 8px; border-radius:999px; border:1px solid var(--line); margin:2px 4px 2px 0; color:var(--accent); }
+    section.block { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:20px; }
+    section.block h2 { font-size:1rem; margin:0 0 12px; }
+    table { width:100%; border-collapse:collapse; font-size:.82rem; }
+    th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--panel); }
+    .st { font-size:.72rem; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+    .st.measured { background:rgba(90,214,160,.15); color:var(--ok); border:1px solid rgba(90,214,160,.4); }
+    .st.not_run { background:rgba(224,177,90,.12); color:var(--warn); border:1px solid rgba(224,177,90,.35); }
+    .scroll { overflow-x:auto; }
+    .note { color:var(--muted); font-size:.8rem; margin-top:8px; }
+    code { background:#0b2230; padding:1px 6px; border-radius:6px; font-size:.85em; }
+    a { color:var(--accent); }
+    .err { color:var(--warn); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>탈환 작전실</h1>
+    <p class="sub">학생 코드가 배포 서버에 보낸 실제 점검 결과와, 아직 보내지 않은 항목(미실행)을 구분해 보여 줍니다. 가상 메모 본문·토큰·비밀값은 담지 않습니다. 판정은 <span id="engine">ALEPH SDP 엔진</span>이 확인합니다.</p>
+
+    <div class="cards" id="cards"></div>
+
+    <section class="block">
+      <h2>학생이 만든 규칙</h2>
+      <div id="rules"></div>
+    </section>
+
+    <section class="block">
+      <h2>1~11단계 점검 표 (정상·금지 요청의 실측 결과)</h2>
+      <p class="note">아직 실행하지 않은 시험은 <span class="st not_run">미실행</span>으로 둡니다. 임의로 통과 처리하지 않습니다.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>점검 ID</th><th>기대 결과</th><th>실제 API 결과</th><th>상태</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="note" id="meta"></p>
+  </main>
+
+  <script>
+    const T = (tag, props = {}, ...kids) => {
+      const el = document.createElement(tag);
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'class') el.className = v; else if (k === 'text') el.textContent = v; else el.setAttribute(k, v);
+      }
+      for (const kid of kids) el.append(kid);
+      return el;
+    };
+    (async () => {
+      let ops;
+      try {
+        const res = await fetch('/ops.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('status ' + res.status);
+        ops = await res.json();
+      } catch (e) {
+        document.querySelector('#cards').append(T('p', { class: 'err', text: '작전실 요약(ops.json)을 불러오지 못했습니다. npm run bundle 다음 npm run ops를 실행했는지 확인하세요.' }));
+        return;
+      }
+      document.querySelector('#engine').textContent = ops.engine || 'ALEPH SDP 엔진';
+
+      const t = ops.totals || { total: 0, measured: 0, notRun: 0 };
+      const cards = [
+        ['단계', String(ops.step ?? '-'), ''],
+        ['실측 점검', String(t.measured), t.measured > 0 ? 'ok' : 'warn'],
+        ['미실행', String(t.notRun), t.notRun > 0 ? 'warn' : 'ok'],
+        ['판정기 규칙', String((ops.policyRules || []).length), ''],
+        ['탐지 규칙', ops.detect ? ops.detect.rule : '-', ''],
+        ['복구 경로', ops.restoreRoute ? '있음' : '없음', ops.restoreRoute ? 'ok' : 'warn'],
+      ];
+      const cwrap = document.querySelector('#cards');
+      for (const [label, val, cls] of cards) {
+        cwrap.append(T('div', { class: 'card' }, T('h2', { text: label }), T('div', { class: 'big ' + (cls || ''), text: val })));
+      }
+
+      const rules = document.querySelector('#rules');
+      rules.append(T('p', {}, document.createTextNode('판정기 규칙(RULE_IDS): ')));
+      for (const r of ops.policyRules || []) rules.append(T('span', { class: 'tag', text: r }));
+      if (ops.detect) rules.append(T('p', { class: 'note', text: `탐지: 같은 사용자 조회가 ${ops.detect.window} 안에 ${ops.detect.threshold}이면 ${ops.detect.action}.` }));
+      if (ops.restore) rules.append(T('p', { class: 'note', text: `복구: 안전 정책(${ops.restore.policyBackup})·메모 사본(${ops.restore.memoBackup}) 기준. 복원 경로 ${ops.restore.route || '없음'}.` }));
+      if (ops.revocation) rules.append(T('p', { class: 'note', text: `회수: ${ops.revocation.source}. ${ops.revocation.note}.` }));
+
+      const rows = document.querySelector('#rows');
+      for (const c of ops.checks || []) {
+        const stClass = c.status === 'measured' ? 'measured' : 'not_run';
+        const stText = c.status === 'measured' ? '실측' : '미실행';
+        rows.append(T('tr', {},
+          T('td', {}, T('code', { text: c.id })),
+          T('td', { text: c.expected || '' }),
+          T('td', { text: c.observed || '' }),
+          T('td', {}, T('span', { class: 'st ' + stClass, text: stText })),
+        ));
+      }
+
+      document.querySelector('#meta').textContent =
+        `커밋 ${(ops.commit || '').slice(0, 12)} · 생성 ${ops.generatedAt || ''} · 출처: ${ops.generatedFrom}`;
+    })();
+  </script>
+</body>
+</html>

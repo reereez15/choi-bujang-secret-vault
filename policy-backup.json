@@ -1,0 +1,19 @@
+{
+  "_comment": "침해 전에 검증한 안전 정책 사본입니다. allowedRoutes만 담습니다(주소·발급자 등 다른 설정은 aleph.config.json 그대로 보존). scripts/policy-restore.mjs로 현재 정책과 비교(--diff)하거나 되돌립니다(--apply).",
+  "verifiedAt": "2026-10-14T00:00:00.000Z",
+  "policy": {
+    "allowedRoutes": [
+      "GET /api/device/check",
+      "GET /api/my/notes",
+      "POST /api/my/notes",
+      "GET /api/notes/:id",
+      "PUT /api/notes/:id",
+      "DELETE /api/notes/:id",
+      "POST /api/auth/login",
+      "POST /api/auth/refresh",
+      "POST /api/auth/logout",
+      "POST /api/restore/note"
+    ]
+  },
+  "sha256": "b5ed83ef7e6824711d889096f8d05ef87bba71cdaa7c9379e73f76a07ee7c8e8"
+}

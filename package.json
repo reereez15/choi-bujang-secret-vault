@@ -9,7 +9,10 @@
     "decider:test": "node scripts/decider-test.mjs",
     "detect:test": "node scripts/detect-test.mjs",
     "fixture:7": "node scripts/fixture-7.mjs",
-    "xdr:run": "node scripts/xdr-run.mjs"
+    "xdr:run": "node scripts/xdr-run.mjs",
+    "policy:diff": "node scripts/policy-restore.mjs --diff",
+    "policy:restore": "node scripts/policy-restore.mjs",
+    "ops": "node scripts/build-ops.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -18,5 +21,4 @@
     "@supabase/supabase-js": "2.117.2",
     "jose": "6.2.12"
   }
-  
 }

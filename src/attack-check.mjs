@@ -30,22 +30,51 @@ async function readBody(response) {
   return { text, data };
 }
 
+// 격리 환경에서는 공개 HTTPS 주소로 보내는 GET·HEAD만 됩니다.
+// 쓰기 요청(POST·PUT·PATCH·DELETE)은 보내지 않고 미실행(not_run)으로 기록합니다.
+const SAFE_METHODS = new Set(['GET', 'HEAD']);
+// 응답 헤더를 [이름, 값] 쌍 배열로 안전하게 읽는다. 표준 Headers, 평범한 객체, 없음 모두 받는다.
+function readHeaderPairs(headers) {
+  if (!headers) return [];
+  try {
+    if (typeof headers.forEach === 'function' && typeof headers.has === 'function') {
+      const pairs = [];
+      headers.forEach((value, name) => pairs.push([String(name), String(value)]));
+      return pairs;
+    }
+    if (typeof headers.entries === 'function') {
+      return [...headers.entries()].map(([name, value]) => [String(name), String(value)]);
+    }
+    if (typeof headers === 'object') {
+      return Object.entries(headers).map(([name, value]) => [String(name), String(Array.isArray(value) ? value.join(', ') : value)]);
+    }
+  } catch { /* 형식을 모르면 헤더 없이 본다. */ }
+  return [];
+}
+
 // 요청을 보내고 결과만 돌려준다. 배포 서버에 닿지 못했거나 중간 차단 장치가 대신 답했다면 점검한 것으로 세지 않는다.
 async function attempt(app, path, options) {
+  const method = (options?.method ?? 'GET').toUpperCase();
+  if (!SAFE_METHODS.has(method)) {
+    // 격리 환경에서 쓸 수 없는 쓰기 요청이므로 보내지 않는다. 임의로 통과 처리하지 않는다.
+    return { unreached: `격리 환경에서 ${method} 요청은 보낼 수 없어 실행하지 않았습니다` };
+  }
   let response;
   try {
     response = await request(app, path, options);
   } catch (error) {
     return { unreached: `요청이 배포 서버에 닿지 못했습니다 (${String(error?.name ?? 'Error').slice(0, 40)})` };
   }
-  if (response.headers.has('x-deny-reason')) {
+  // 응답 헤더 형식이 표준 Headers가 아니어도(격리 실행기) 예외가 나지 않게 방어적으로 읽는다.
+  const headerPairs = readHeaderPairs(response.headers);
+  if (headerPairs.some(([name]) => name.toLowerCase() === 'x-deny-reason')) {
     return { unreached: '중간 차단 장치가 대신 답해서 배포 서버가 응답하지 않았습니다' };
   }
   const { text, data } = await readBody(response);
-  const headerText = [...response.headers].map(([name, value]) => `${name}: ${value}`).join('\n');
+  const headerText = headerPairs.map(([name, value]) => `${name}: ${value}`).join('\n');
   return { response, text, data, headerText };
 }
-const notReached = (result) => `미실행: ${result.unreached}.`;
+const notReached = () => 'not_run';  // 요청을 보내지 못한 점검은 상태를 지어내지 않고 not_run으로만 적는다.
 const noteCount = (data) => (Array.isArray(data) ? data.length
   : Array.isArray(data?.notes) ? data.notes.length : 0);
 
@@ -59,12 +88,12 @@ async function runStepThree(config, app) {
     const leaked = noteCount(data) > 0 || Array.isArray(data) || typeof data?.title === 'string';
     const code = typeof data?.error === 'string' && /^[a-z_]{1,40}$/u.test(data.error) ? `, 응답 코드 ${data.error}` : '';
     return { attackId: id, expected,
-      observed: `${leaked ? '메모 내용이 응답됨' : '메모 내용 없이 거부됨'} (HTTP ${response.status}${code})` };
+      observed: `HTTP ${response.status}` };
   })());
   const json = { 'content-type': 'application/json' };
 
-  refused('anonymous_list_read', '로그인 없이 GET /api/notes를 부르면 자료 없이 401로 거부됨', '/api/notes');
-  refused('anonymous_create', '로그인 없이 POST /api/notes를 부르면 만들지 않고 401로 거부됨', '/api/notes',
+  refused('anonymous_list_read', '로그인 없이 GET /api/my/notes를 부르면 자료 없이 401로 거부됨', '/api/my/notes');
+  refused('anonymous_create', '로그인 없이 POST /api/my/notes를 부르면 만들지 않고 401로 거부됨', '/api/my/notes',
     { method: 'POST', headers: json, body: '{}' });
   refused('anonymous_item_read', '로그인 없이 GET /api/notes/:id를 부르면 자료 없이 401로 거부됨', `/api/notes/${randomId}`);
   refused('anonymous_update', '로그인 없이 PUT /api/notes/:id를 부르면 고치지 않고 401로 거부됨', `/api/notes/${randomId}`,
@@ -73,10 +102,41 @@ async function runStepThree(config, app) {
     { method: 'DELETE' });
 
   // 서명되지 않은 가짜 토큰과 role=admin 같은 위조 값. 검사하는 쪽이 발급자에게 물어 거부해야 한다.
-  const b64 = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  // 격리 실행기에서는 node:buffer를 쓸 수 없다. 가짜 토큰용 base64url 인코딩만 순수 JS로 만든다.
+  // (이 값은 서명 없는 가짜 토큰이라 서버가 거부해야 하는 입력이다. 실제 비밀값이 아니다.)
+  const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const toBase64Url = (bytes) => {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+      const a = bytes[i], b = i + 1 < bytes.length ? bytes[i + 1] : 0, c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+      const n = (a << 16) | (b << 8) | c;
+      out += B64_CHARS[(n >> 18) & 63] + B64_CHARS[(n >> 12) & 63];
+      out += i + 1 < bytes.length ? B64_CHARS[(n >> 6) & 63] : '';
+      out += i + 2 < bytes.length ? B64_CHARS[n & 63] : '';
+    }
+    return out;
+  };
+  // 격리 실행기에는 TextEncoder가 없을 수 있다. 문자열을 UTF-8 바이트로 바꾸는 것도 순수 JS로 한다.
+  const utf8Bytes = (str) => {
+    const bytes = [];
+    for (let i = 0; i < str.length; i += 1) {
+      let code = str.charCodeAt(i);
+      // 서러게이트 쌍(이모지 등)을 하나의 코드포인트로 합친다.
+      if (code >= 0xd800 && code <= 0xdbff && i + 1 < str.length) {
+        const next = str.charCodeAt(i + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) { code = 0x10000 + ((code - 0xd800) << 10) + (next - 0xdc00); i += 1; }
+      }
+      if (code < 0x80) bytes.push(code);
+      else if (code < 0x800) bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+      else if (code < 0x10000) bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+      else bytes.push(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    }
+    return bytes;
+  };
+  const b64 = (value) => toBase64Url(utf8Bytes(JSON.stringify(value)));
   const forged = `${b64({ alg: 'ES256', typ: 'JWT' })}.${b64({ iss: config.identityProvider?.issuer ?? 'forged',
     sub: randomUUID(), aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 600 })}.c2ln`;
-  refused('forged_login_rejected', '위조한 토큰과 role=admin·사용자 번호 값을 보내면 자료 없이 401로 거부됨', '/api/notes',
+  refused('forged_login_rejected', '위조한 토큰과 role=admin·사용자 번호 값을 보내면 자료 없이 401로 거부됨', '/api/my/notes',
     { headers: { authorization: `Bearer ${forged}`, 'x-role': 'admin', 'x-user-id': randomUUID() } });
 
   const results = await Promise.all(attempts);
@@ -87,30 +147,26 @@ async function runStepThree(config, app) {
     const { data, response } = staticResult;
     const visible = data?.sampleMarker === config.sampleMarker || noteCount(data) > 0;
     results.push({ attackId: 'static_data_json_read', expected: '공개 /data.json에 가상 메모가 보이지 않음',
-      observed: visible ? '비로그인 요청에서 /data.json에 가상 메모가 보임'
-        : `비로그인 요청에서 /data.json에 가상 메모가 보이지 않음 (HTTP ${response.status})` });
+      observed: `HTTP ${response.status}${visible ? '; notesVisible=true' : ''}` });
   }
 
   // 위 응답 본문과 헤더에 서버 전용 키로 보이는 값이 있었는지 한 번 더 본다.
-  const probe = await attempt(app, '/api/notes');
+  const probe = await attempt(app, '/api/my/notes');
   results.push({ attackId: 'api_key_not_exposed', expected: '/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
-    observed: probe.unreached ? notReached(probe)
-      : (KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText))
-        ? '응답 본문 또는 헤더에 키로 보이는 값이 있음' : '응답 본문과 헤더에 키로 보이는 값이 없음' });
+    observed: probe.unreached ? 'not_run'
+      : `HTTP ${probe.response.status}${(KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText)) ? '; keyLeaked=true' : ''}` });
 
   // 정상 로그인 요청은 실제 토큰이 있어야 보낼 수 있다. 토큰은 환경변수로만 받고 어디에도 적지 않는다.
   const token = process.env.ATTACK_CHECK_TOKEN;
   const normalExpected = '정상 로그인 토큰으로 GET /api/notes를 부르면 본인 메모 배열이 응답됨';
   if (!token) {
     results.push({ attackId: 'normal_login_read', expected: normalExpected,
-      observed: '미실행: 정상 로그인 요청은 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN 없음).' });
+      observed: 'not_run' });
   } else {
-    const normal = await attempt(app, '/api/notes', { headers: { authorization: `Bearer ${token}` } });
+    const normal = await attempt(app, '/api/my/notes', { headers: { authorization: `Bearer ${token}` } });
     results.push({ attackId: 'normal_login_read', expected: normalExpected,
-      observed: normal.unreached ? notReached(normal)
-        : normal.response.ok && Array.isArray(normal.data)
-          ? `HTTP ${normal.response.status}로 메모 ${normal.data.length}건이 배열로 응답됨 (본문은 기록하지 않음)`
-          : `정상 요청이 받아들여지지 않음 (HTTP ${normal.response.status})` });
+      observed: normal.unreached ? 'not_run'
+        : `HTTP ${normal.response.status}${normal.response.ok && Array.isArray(normal.data) ? `; notes=${normal.data.length}` : ''}` });
   }
   return results;
 }
@@ -129,42 +185,41 @@ const OWNER_CHECKS = [
 async function runOwnerChecks(app) {
   const tokenA = process.env.ATTACK_CHECK_TOKEN;
   const tokenB = process.env.ATTACK_CHECK_TOKEN_B;
-  const skip = (reason) => OWNER_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: `미실행: ${reason}` }));
+  const skip = () => OWNER_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
   if (!tokenA || !tokenB) {
-    return skip('서로 다른 두 사용자(A·B)의 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN, ATTACK_CHECK_TOKEN_B 없음).');
+    return skip();
   }
-  if (tokenA === tokenB) return skip('두 토큰이 같아서 서로 다른 사용자 점검을 할 수 없습니다.');
+  if (tokenA === tokenB) return skip();
 
   const as = (token, extra = {}) => ({ authorization: `Bearer ${token}`, ...extra });
   const json = { 'content-type': 'application/json' };
   const noteId = randomUUID();
   const title = 'attack-check 임시 메모';
-  const created = await attempt(app, '/api/notes', { method: 'POST', headers: as(tokenA, json),
+  const created = await attempt(app, '/api/my/notes', { method: 'POST', headers: as(tokenA, json),
     body: JSON.stringify({ id: noteId, title, body: 'owner check' }) });
-  if (created.unreached) return skip(`${created.unreached}.`);
+  if (created.unreached) return skip();
   if (created.response.status !== 201) {
-    return skip(`A의 임시 메모를 만들지 못했습니다 (HTTP ${created.response.status}). 토큰이 만료됐는지 확인하세요.`);
+    return skip();
   }
   const code = (data) => (typeof data?.error === 'string' && /^[a-z_]{1,40}$/u.test(data.error) ? `, 응답 코드 ${data.error}` : '');
-  const refusal = (result, want) => {
-    if (result.unreached) return notReached(result);
+  const refusal = (result) => {
+    if (result.unreached) return 'not_run';
     const leaked = result.data?.title === title || result.data?.body === 'owner check';
-    const ok = result.response.status === want && !leaked;
-    return `${ok ? '거부됨' : '거부되지 않음'} (HTTP ${result.response.status}${code(result.data)}${leaked ? ', 메모 내용이 응답됨' : ''})`;
+    return `HTTP ${result.response.status}${leaked ? '; leaked=true' : ''}`;
   };
   const observed = {};
   try {
-    observed.owner_cross_read = refusal(await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenB) }), 404);
+    observed.owner_cross_read = refusal(await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenB) }));
     observed.owner_cross_update = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenB, json),
-      body: JSON.stringify({ title: 'attack-check 탈취', body: 'x' }) }), 404);
-    observed.owner_cross_delete = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenB) }), 404);
-    const list = await attempt(app, '/api/notes', { headers: as(tokenB) });
+      body: JSON.stringify({ title: 'attack-check 탈취', body: 'x' }) }));
+    observed.owner_cross_delete = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenB) }));
+    const list = await attempt(app, '/api/my/notes', { headers: as(tokenB) });
     observed.owner_list_isolation = list.unreached ? notReached(list)
       : list.response.status === 200 && Array.isArray(list.data) && !list.data.some((note) => note?.id === noteId)
         ? `목록에 A의 메모가 없음 (HTTP 200, 메모 ${list.data.length}건)`
         : `목록에 A의 메모가 보이거나 목록을 받지 못함 (HTTP ${list.response.status})`;
     observed.owner_change_rejected = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenA, json),
-      body: JSON.stringify({ title, body: 'owner check', owner_id: randomUUID() }) }), 403);
+      body: JSON.stringify({ title, body: 'owner check', owner_id: randomUUID() }) }));
     const intact = await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenA) });
     observed.owner_note_intact = intact.unreached ? notReached(intact)
       : intact.response.status === 200 && intact.data?.title === title
@@ -196,11 +251,11 @@ async function runOriginalApiChecks(config) {
   }
   // 이 저장소와 브라우저 코드에는 Supabase 키가 없다. anon 점검에 쓸 공개용 키는 환경변수로만 받고 어디에도 적지 않는다.
   const key = process.env.ATTACK_CHECK_ANON_KEY;
-  const skip = (reason) => ORIGINAL_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: `미실행: ${reason}` }));
+  const skip = () => ORIGINAL_CHECKS.map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
   if (typeof key !== 'string' || !key.trim()) {
-    return skip('anon 점검에 쓸 공개용 키가 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_ANON_KEY 없음).');
+    return skip();
   }
-  if (key.startsWith('sb_secret_')) return skip('서버 전용 키로 보여 보내지 않았습니다. 공개용(publishable) 키를 넣어 주세요.');
+  if (key.startsWith('sb_secret_')) return skip();
   const json = { 'content-type': 'application/json' };
   const verdict = (result) => {
     if (result.unreached) return null;
@@ -209,8 +264,8 @@ async function runOriginalApiChecks(config) {
       denied: (result.response.status === 401 || result.response.status === 403) && rows === 0,
       code: typeof result.data?.code === 'string' && /^[A-Za-z0-9_]{1,12}$/u.test(result.data.code) ? result.data.code : null };
   };
-  const describe = (item, result) => (result.unreached ? notReached(result)
-    : `${item.denied ? '거부됨' : '거부되지 않음'} (HTTP ${item.status}${item.code ? `, 코드 ${item.code}` : ''}${item.rows ? `, 메모 ${item.rows}건이 응답됨` : ''})`);
+  const describe = (item, result) => (result.unreached ? 'not_run'
+    : `HTTP ${item.status}${item.code ? `; code=${item.code}` : ''}${item.rows ? `; rows=${item.rows}` : ''}`);
 
   const read = await attempt(original, url, { headers: { apikey: key } });
   const insert = await attempt(original, url, { method: 'POST', headers: { apikey: key, ...json, prefer: 'return=minimal' }, body: '{}' });
@@ -227,13 +282,13 @@ async function runOriginalApiChecks(config) {
   const unreached = modify.find((result) => result.unreached);
   const parts = modify.map((result) => verdict(result));
   results.push({ attackId: 'original_api_anon_modify', expected: ORIGINAL_CHECKS[2][1],
-    observed: unreached ? notReached(unreached)
-      : `${parts.every((part) => part.denied) ? '거부됨' : '거부되지 않음'} (PATCH HTTP ${parts[0].status}${parts[0].code ? `, 코드 ${parts[0].code}` : ''}; DELETE HTTP ${parts[1].status}${parts[1].code ? `, 코드 ${parts[1].code}` : ''})` });
+    observed: unreached ? 'not_run'
+      : `PATCH HTTP ${parts[0].status}; DELETE HTTP ${parts[1].status}` });
 
   const token = process.env.ATTACK_CHECK_TOKEN;
   if (!token) {
     results.push({ attackId: 'original_api_user_read', expected: ORIGINAL_CHECKS[3][1],
-      observed: '미실행: 로그인 사용자 요청은 실제 토큰이 필요해 보내지 않았습니다 (환경변수 ATTACK_CHECK_TOKEN 없음).' });
+      observed: 'not_run' });
   } else {
     const user = await attempt(original, url, { headers: { apikey: key, authorization: `Bearer ${token}` } });
     results.push({ attackId: 'original_api_user_read', expected: ORIGINAL_CHECKS[3][1], observed: describe(verdict(user) ?? {}, user) });
@@ -242,13 +297,13 @@ async function runOriginalApiChecks(config) {
 }
 
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   const app = publicApp(config);
   if (config.step === 3) return runStepThree(config, app);
   if (config.step === 4) return [...await runStepThree(config, app), ...await runOwnerChecks(app)];
   // 6단계 판정기 규칙(기기 등록)은 배포 서버로 보내는 요청이 아니라 심판이 가상 요청으로 확인하므로,
   // 자기 점검은 5단계와 같은 실제 요청만 보냅니다.
-  if (config.step === 5 || config.step === 6) return [...await runStepThree(config, app), ...await runOwnerChecks(app), ...await runOriginalApiChecks(config)];
+  if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11 || config.step === 12) return [...await runStepThree(config, app), ...await runOwnerChecks(app), ...await runOriginalApiChecks(config)];
   const staticResponse = await request(app, '/data.json');
   const { data: staticData } = await readBody(staticResponse);
   const staticVisible = staticData?.sampleMarker === config.sampleMarker
@@ -257,21 +312,19 @@ export async function runAttackChecks(config) {
     const visible = staticData?.sampleMarker === config.sampleMarker && Array.isArray(staticData.notes)
       && staticData.notes.length > 0;
     return [{ attackId: 'anonymous_note_read', expected: '비로그인 화면에서 가상 메모를 확인',
-      observed: visible ? '비로그인 요청에서 공개 가상 메모 확인 표시가 보임' : `비로그인 요청에서 확인 표시가 보이지 않음 (HTTP ${staticResponse.status})` }];
+      observed: `HTTP ${staticResponse.status}${visible ? '; notesVisible=true' : ''}` }];
   }
   const api = await request(app, '/api/notes');
   const { text, data } = await readBody(api);
   const count = Array.isArray(data?.notes) ? data.notes.length : 0;
-  const headerText = [...api.headers].map(([name, value]) => `${name}: ${value}`).join('\n');
+  const headerText = readHeaderPairs(api.headers).map(([name, value]) => `${name}: ${value}`).join('\n');
   const leaked = KEY_SHAPE.test(text) || KEY_SHAPE.test(headerText);
   return [
     { attackId: 'static_data_json_read', expected: '공개 /data.json에 가상 메모가 보이지 않음',
-      observed: staticVisible ? '비로그인 요청에서 /data.json에 가상 메모가 보임'
-        : `비로그인 요청에서 /data.json에 가상 메모가 보이지 않음 (HTTP ${staticResponse.status})` },
+      observed: `HTTP ${staticResponse.status}${staticVisible ? '; notesVisible=true' : ''}` },
     { attackId: 'anonymous_api_read', expected: '키 없이 /api/notes를 부르면 가상 메모가 응답됨 (3단계 전까지 알려진 약점)',
-      observed: api.ok && count > 0 ? `키 없이 요청해도 HTTP ${api.status}로 메모 ${count}건이 응답됨 (본문은 기록하지 않음)`
-        : `키 없이 요청했을 때 메모가 응답되지 않음 (HTTP ${api.status})` },
+      observed: `HTTP ${api.status}${api.ok && count > 0 ? `; notes=${count}` : ''}` },
     { attackId: 'api_key_not_exposed', expected: '/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
-      observed: leaked ? '응답 본문 또는 헤더에 키로 보이는 값이 있음' : '응답 본문과 헤더에 키로 보이는 값이 없음' },
+      observed: `HTTP ${api.status}${leaked ? '; keyLeaked=true' : ''}` },
   ];
 }

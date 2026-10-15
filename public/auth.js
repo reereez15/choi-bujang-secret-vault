@@ -1,8 +1,8 @@
 // 로그인 화면의 판단 로직. 이 브라우저 코드에는 Supabase 키도 SDK도 없다.
 // 로그인·토큰 갱신·로그아웃은 같은 서버의 /api/auth/* 함수가 Supabase Auth에 대신 부른다.
-// 비밀번호는 서버로 보내기만 하고 저장하지 않는다. 서버가 돌려준 세션은 이 탭의 sessionStorage에만 둔다(탭을 닫으면 사라진다).
+// 비밀번호도 토큰도 브라우저 저장소에 두지 않는다. 서버가 돌려준 세션은 이 탭의 메모리(변수)에만 둔다.
+// 새로고침하면 메모리가 비므로 다시 로그인한다. 기기 키·토큰을 브라우저 저장소나 쿠키에 넣지 않는다.
 
-const STORAGE_KEY = 'vault.session';
 const SAFE_CODE = /^[a-z0-9_]{1,40}$/u;
 const MAX_TIMER = 2 ** 31 - 1;
 
@@ -35,7 +35,6 @@ function validSession(value) {
 export function mountAuthPanel({
   root, onSession,
   fetchImpl = (...args) => globalThis.fetch(...args),
-  storage = globalThis.sessionStorage,
   now = () => Date.now(),
   setTimer = (fn, ms) => globalThis.setTimeout(fn, ms),
   clearTimer = (id) => globalThis.clearTimeout(id),
@@ -78,12 +77,8 @@ export function mountAuthPanel({
   let timer = null;
   let epoch = 0; // 로그인·로그아웃이 일어날 때마다 올려서, 늦게 도착한 갱신 응답이 세션을 되살리지 못하게 한다.
 
-  const save = () => {
-    try {
-      if (session) storage.setItem(STORAGE_KEY, JSON.stringify(session));
-      else storage.removeItem(STORAGE_KEY);
-    } catch { /* 저장소를 못 쓰면 이 탭에서만 로그인이 유지된다. */ }
-  };
+  // 세션은 메모리(session 변수)에만 둔다. 브라우저 저장소에 쓰지 않는다.
+  const save = () => { /* 저장소에 토큰을 두지 않는다. 아무것도 하지 않는다. */ };
   const view = () => (session ? { access_token: session.access_token, user: session.user } : null);
 
   async function call(path, { payload, token } = {}) {
@@ -179,23 +174,9 @@ export function mountAuthPanel({
     els.logout.disabled = false;
   });
 
-  // 처음 열 때: 이 탭에 저장된 세션이 있으면 복원하고, 만료가 가까우면 먼저 갱신한다.
+  // 처음 열 때: 저장소에서 복원하지 않는다(토큰을 저장하지 않으므로). 항상 로그아웃 상태로 시작한다.
   render(null);
   setMessage('로그인하지 않았습니다.');
-  let stored = null;
-  try { stored = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null'); } catch { stored = null; }
-  let ready = Promise.resolve();
-  if (validSession(stored)) {
-    session = stored;
-    if (session.expires_at * 1000 - now() < 30000) {
-      ready = refreshNow().then(() => { if (session) setMessage('로그인한 상태입니다.', 'ok'); });
-    } else {
-      render(view());
-      schedule();
-      setMessage('로그인한 상태입니다.', 'ok');
-    }
-  } else if (stored) {
-    try { storage.removeItem(STORAGE_KEY); } catch { /* 무시 */ }
-  }
+  const ready = Promise.resolve();
   return { ok: true, ready };
 }
