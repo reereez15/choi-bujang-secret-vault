@@ -2,7 +2,11 @@
   "schema": "aleph.ops.summary.v1",
   "generatedFrom": "artifacts/submission.json",
   "step": 12,
+<<<<<<< HEAD
   "commit": "7caca946e7ec265533e58e71658edf8b0272b6da",
+=======
+  "commit": "5e24f51d850f777b70dd72f347d6ea47cedc0aad",
+>>>>>>> ef5e4a2d3598eaa2391c357977c8de122703a464
   "repoUrl": "https://github.com/reereez15/choi-bujang-secret-vault",
   "policyRules": [
     "device_registered",
@@ -40,13 +44,21 @@
   "checks": [
     {
       "id": "anonymous_list_read",
+<<<<<<< HEAD
       "expected": "로그인 없이 GET /api/my/notes를 부르면 자료 없이 401로 거부됨",
+=======
+      "expected": "로그인 없이 GET /api/notes를 부르면 자료 없이 401로 거부됨",
+>>>>>>> ef5e4a2d3598eaa2391c357977c8de122703a464
       "observed": "HTTP 401",
       "status": "measured"
     },
     {
       "id": "anonymous_create",
+<<<<<<< HEAD
       "expected": "로그인 없이 POST /api/my/notes를 부르면 만들지 않고 401로 거부됨",
+=======
+      "expected": "로그인 없이 POST /api/notes를 부르면 만들지 않고 401로 거부됨",
+>>>>>>> ef5e4a2d3598eaa2391c357977c8de122703a464
       "observed": "not_run",
       "status": "not_run"
     },
@@ -159,5 +171,9 @@
     "notRun": 14
   },
   "engine": "ALEPH SDP 엔진",
+<<<<<<< HEAD
   "generatedAt": "2026-10-15T13:55:41.339Z"
+=======
+  "generatedAt": "2026-10-15T08:36:21.050Z"
+>>>>>>> ef5e4a2d3598eaa2391c357977c8de122703a464
 }
