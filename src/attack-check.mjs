@@ -85,11 +85,12 @@ async function runStepThree(config, app) {
   const refused = (id, expected, path, options) => attempts.push((async () => {
     const result = await attempt(app, path, options);
     if (result.unreached) return { attackId: id, expected, observed: notReached(result) };
-    const { response, data } = result;
-    const leaked = noteCount(data) > 0 || Array.isArray(data) || typeof data?.title === 'string';
-    const code = typeof data?.error === 'string' && /^[a-z_]{1,40}$/u.test(data.error) ? `, 응답 코드 ${data.error}` : '';
+    const { response } = result;
+    // 요청에 인증 헤더를 붙였는지 표시해, 익명 요청과 위조 토큰 요청을 observed에서 구별한다.
+    const hasAuth = Boolean(options?.headers?.authorization);
+    const authTag = hasAuth ? ' (auth=forged)' : '';
     return { attackId: id, expected,
-      observed: `${result.sent} -> HTTP ${response.status}` };
+      observed: `${result.sent}${authTag} -> HTTP ${response.status}` };
   })());
   const json = { 'content-type': 'application/json' };
 
@@ -153,9 +154,9 @@ async function runStepThree(config, app) {
 
   // 위 응답 본문과 헤더에 서버 전용 키로 보이는 값이 있었는지 한 번 더 본다.
   const probe = await attempt(app, '/api/my/notes');
-  results.push({ attackId: 'api_key_not_exposed', expected: '/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
+  results.push({ attackId: 'api_key_not_exposed', expected: 'GET /api/my/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
     observed: probe.unreached ? 'not_run'
-      : `${probe.sent} -> HTTP ${probe.response.status}${(KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText)) ? '; keyLeaked=true' : ''}` });
+      : `${probe.sent} (keyCheck) -> HTTP ${probe.response.status}${(KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText)) ? '; keyLeaked=true' : ''}` });
 
   // 정상 로그인 요청은 실제 토큰이 있어야 보낼 수 있다. 토큰은 환경변수로만 받고 어디에도 적지 않는다.
   const token = process.env.ATTACK_CHECK_TOKEN;
