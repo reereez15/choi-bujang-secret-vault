@@ -72,7 +72,8 @@ async function attempt(app, path, options) {
   }
   const { text, data } = await readBody(response);
   const headerText = headerPairs.map(([name, value]) => `${name}: ${value}`).join('\n');
-  return { response, text, data, headerText };
+  // 보낸 요청(메서드·경로)을 함께 돌려준다. 심판이 요청 기록과 대조할 수 있게 observed에 적는다.
+  return { response, text, data, headerText, sent: `${method} ${path}` };
 }
 const notReached = () => 'not_run';  // 요청을 보내지 못한 점검은 상태를 지어내지 않고 not_run으로만 적는다.
 const noteCount = (data) => (Array.isArray(data) ? data.length
@@ -88,7 +89,7 @@ async function runStepThree(config, app) {
     const leaked = noteCount(data) > 0 || Array.isArray(data) || typeof data?.title === 'string';
     const code = typeof data?.error === 'string' && /^[a-z_]{1,40}$/u.test(data.error) ? `, 응답 코드 ${data.error}` : '';
     return { attackId: id, expected,
-      observed: `HTTP ${response.status}` };
+      observed: `${result.sent} -> HTTP ${response.status}` };
   })());
   const json = { 'content-type': 'application/json' };
 
@@ -147,14 +148,14 @@ async function runStepThree(config, app) {
     const { data, response } = staticResult;
     const visible = data?.sampleMarker === config.sampleMarker || noteCount(data) > 0;
     results.push({ attackId: 'static_data_json_read', expected: '공개 /data.json에 가상 메모가 보이지 않음',
-      observed: `HTTP ${response.status}${visible ? '; notesVisible=true' : ''}` });
+      observed: `${staticResult.sent} -> HTTP ${response.status}${visible ? '; notesVisible=true' : ''}` });
   }
 
   // 위 응답 본문과 헤더에 서버 전용 키로 보이는 값이 있었는지 한 번 더 본다.
   const probe = await attempt(app, '/api/my/notes');
   results.push({ attackId: 'api_key_not_exposed', expected: '/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
     observed: probe.unreached ? 'not_run'
-      : `HTTP ${probe.response.status}${(KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText)) ? '; keyLeaked=true' : ''}` });
+      : `${probe.sent} -> HTTP ${probe.response.status}${(KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText)) ? '; keyLeaked=true' : ''}` });
 
   // 정상 로그인 요청은 실제 토큰이 있어야 보낼 수 있다. 토큰은 환경변수로만 받고 어디에도 적지 않는다.
   const token = process.env.ATTACK_CHECK_TOKEN;
@@ -166,7 +167,7 @@ async function runStepThree(config, app) {
     const normal = await attempt(app, '/api/my/notes', { headers: { authorization: `Bearer ${token}` } });
     results.push({ attackId: 'normal_login_read', expected: normalExpected,
       observed: normal.unreached ? 'not_run'
-        : `HTTP ${normal.response.status}${normal.response.ok && Array.isArray(normal.data) ? `; notes=${normal.data.length}` : ''}` });
+        : `${normal.sent} -> HTTP ${normal.response.status}${normal.response.ok && Array.isArray(normal.data) ? `; notes=${normal.data.length}` : ''}` });
   }
   return results;
 }
@@ -205,7 +206,7 @@ async function runOwnerChecks(app) {
   const refusal = (result) => {
     if (result.unreached) return 'not_run';
     const leaked = result.data?.title === title || result.data?.body === 'owner check';
-    return `HTTP ${result.response.status}${leaked ? '; leaked=true' : ''}`;
+    return `${result.sent} -> HTTP ${result.response.status}${leaked ? '; leaked=true' : ''}`;
   };
   const observed = {};
   try {
@@ -265,7 +266,7 @@ async function runOriginalApiChecks(config) {
       code: typeof result.data?.code === 'string' && /^[A-Za-z0-9_]{1,12}$/u.test(result.data.code) ? result.data.code : null };
   };
   const describe = (item, result) => (result.unreached ? 'not_run'
-    : `HTTP ${item.status}${item.code ? `; code=${item.code}` : ''}${item.rows ? `; rows=${item.rows}` : ''}`);
+    : `${result.sent} -> HTTP ${item.status}${item.code ? `; code=${item.code}` : ''}${item.rows ? `; rows=${item.rows}` : ''}`);
 
   const read = await attempt(original, url, { headers: { apikey: key } });
   const insert = await attempt(original, url, { method: 'POST', headers: { apikey: key, ...json, prefer: 'return=minimal' }, body: '{}' });
