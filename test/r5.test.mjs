@@ -934,14 +934,14 @@ test('step 3 attack check sends the real refused requests and records only what 
       'anonymous_update', 'api_key_not_exposed', 'forged_login_rejected', 'normal_login_read', 'static_data_json_read']);
     // GET 점검은 실제로 거부를 확인한다.
     for (const id of ['anonymous_item_read', 'anonymous_list_read', 'forged_login_rejected']) {
-      assert.match(byId[id].observed, /-> HTTP 401$/u, id);
+      assert.match(byId[id].observed, /^HTTP 401$/u, id);
     }
     // 격리 환경에서 쓰기 요청(POST/PUT/DELETE)이 필요한 점검은 미실행으로 둔다.
     for (const id of ['anonymous_create', 'anonymous_update', 'anonymous_delete']) {
       assert.match(byId[id].observed, /^not_run$/u, id + '는 쓰기 요청이라 미실행이어야 합니다');
     }
-    assert.match(byId.static_data_json_read.observed, /-> HTTP 200$/u);
-    assert.match(byId.api_key_not_exposed.observed, /-> HTTP \d+/u);
+    assert.match(byId.static_data_json_read.observed, /^HTTP 200$/u);
+    assert.match(byId.api_key_not_exposed.observed, /^HTTP \d+/u);
     assert.match(byId.normal_login_read.observed, /^not_run$/u, '토큰 없이는 정상 요청을 보냈다고 쓰면 안 됩니다');
     const sent = requests.map((item) => `${item.method} ${item.path.replace(/[0-9a-f-]{36}/u, ':id')}`);
     // GET 요청은 나가고, 쓰기 요청은 나가지 않아야 한다.
@@ -959,7 +959,7 @@ test('step 3 attack check sends the real refused requests and records only what 
 
 test('step 3 attack check reports a real hole, an unreachable server and a normal login honestly', async () => {
   const hole = await withFetch(serverFetch({ guarded: false }).impl, () => runAttackChecks(step3));
-  assert.ok(hole.some((item) => /-> HTTP 200/u.test(item.observed)), '막히지 않았다면 받은 상태를 그대로 적어야 합니다');
+  assert.ok(hole.some((item) => /^HTTP 200/u.test(item.observed)), '막히지 않았다면 받은 상태를 그대로 적어야 합니다');
   assert.ok(!JSON.stringify(hole).includes('SECRET_TITLE_VALUE') && !JSON.stringify(hole).includes('SECRET_BODY_VALUE'));
 
   const leak = await withFetch(serverFetch({ leakKey: true }).impl, () => runAttackChecks(step3));
@@ -976,7 +976,7 @@ test('step 3 attack check reports a real hole, an unreachable server and a norma
   try {
     const normal = await withFetch(serverFetch().impl, () => runAttackChecks(step3));
     const item = normal.find((entry) => entry.attackId === 'normal_login_read');
-    assert.match(item.observed, /-> HTTP 200; notes=1$/u);
+    assert.match(item.observed, /^HTTP 200; notes=1$/u);
     assert.ok(!JSON.stringify(normal).includes('REAL-LOGIN-TOKEN') && !JSON.stringify(normal).includes('SECRET_TITLE_VALUE'));
   } finally {
     if (previous === undefined) delete process.env.ATTACK_CHECK_TOKEN; else process.env.ATTACK_CHECK_TOKEN = previous;
@@ -1125,8 +1125,8 @@ test('step 5 attack check sends only GET to the original API and marks writes no
   assert.equal(new Set(results.map((item) => item.attackId)).size, 19);
   for (const id of ORIGINAL_IDS) assert.ok(items[id], id);
   // GET 점검(anon 읽기·로그인 사용자 읽기)은 실측한다.
-  assert.match(items.original_api_anon_read.observed, /-> HTTP 401; code=42501$/u);
-  assert.match(items.original_api_user_read.observed, /-> HTTP 403; code=42501$/u);
+  assert.match(items.original_api_anon_read.observed, /^HTTP 401; code=42501$/u);
+  assert.match(items.original_api_user_read.observed, /^HTTP 403; code=42501$/u);
   // 쓰기 점검(추가·수정/삭제)은 격리 환경에서 보내지 않고 미실행으로 둔다.
   assert.match(items.original_api_anon_insert.observed, /^not_run$/u);
   assert.match(items.original_api_anon_modify.observed, /^not_run$/u);
@@ -1157,7 +1157,7 @@ test('step 5 attack check reports an open original API read, writes stay not_run
 test('step 5 attack check marks what it could not send as not run', async () => {
   const noToken = await withTokens(undefined, undefined, () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
   assert.match(byId(noToken).original_api_user_read.observed, /^not_run$/u);
-  assert.match(byId(noToken).original_api_anon_read.observed, /-> HTTP /u);
+  assert.match(byId(noToken).original_api_anon_read.observed, /HTTP /u);
   const blocked = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step5)));
   assert.ok(blocked.every((item) => /^not_run$/u.test(item.observed)));
   const savedKey = process.env.ATTACK_CHECK_ANON_KEY;
