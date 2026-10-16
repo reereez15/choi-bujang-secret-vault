@@ -2,7 +2,7 @@
   "schema": "aleph.ops.summary.v1",
   "generatedFrom": "artifacts/submission.json",
   "step": 12,
-  "commit": "c0c19121cc0c28926e67d1bc5a870464a3345f10",
+  "commit": "8f38669b572f3d5106f01f50cdc107eba2449a0f",
   "repoUrl": "https://github.com/reereez15/choi-bujang-secret-vault",
   "policyRules": [
     "device_registered",
@@ -41,8 +41,8 @@
     {
       "id": "anonymous_list_read",
       "expected": "로그인 없이 GET /api/my/notes를 부르면 자료 없이 401로 거부됨",
-      "observed": "not_run",
-      "status": "not_run"
+      "observed": "HTTP 401",
+      "status": "measured"
     },
     {
       "id": "anonymous_create",
@@ -53,8 +53,8 @@
     {
       "id": "anonymous_item_read",
       "expected": "로그인 없이 GET /api/notes/:id를 부르면 자료 없이 401로 거부됨",
-      "observed": "not_run",
-      "status": "not_run"
+      "observed": "HTTP 401",
+      "status": "measured"
     },
     {
       "id": "anonymous_update",
@@ -71,20 +71,20 @@
     {
       "id": "forged_login_rejected",
       "expected": "위조한 토큰과 role=admin·사용자 번호 값을 보내면 자료 없이 401로 거부됨",
-      "observed": "not_run",
-      "status": "not_run"
+      "observed": "HTTP 401",
+      "status": "measured"
     },
     {
       "id": "static_data_json_read",
       "expected": "공개 /data.json에 가상 메모가 보이지 않음",
-      "observed": "not_run",
-      "status": "not_run"
+      "observed": "HTTP 200",
+      "status": "measured"
     },
     {
       "id": "api_key_not_exposed",
       "expected": "GET /api/my/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음",
-      "observed": "not_run",
-      "status": "not_run"
+      "observed": "HTTP 401",
+      "status": "measured"
     },
     {
       "id": "normal_login_read",
@@ -155,9 +155,9 @@
   ],
   "totals": {
     "total": 19,
-    "measured": 0,
-    "notRun": 19
+    "measured": 5,
+    "notRun": 14
   },
   "engine": "ALEPH SDP 엔진",
-  "generatedAt": "2026-10-16T00:24:28.697Z"
+  "generatedAt": "2026-10-16T00:27:06.582Z"
 }
