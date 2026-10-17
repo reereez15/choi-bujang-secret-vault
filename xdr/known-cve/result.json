@@ -64,27 +64,27 @@
     },
     {
       "alertId": "kc-11",
-      "action": "record",
-      "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-12",
-      "action": "record",
-      "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-13",
-      "action": "record",
-      "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-14",
-      "action": "record",
-      "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-15",
@@ -102,54 +102,54 @@
       "alertId": "kc-17",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-18",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-19",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-20",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-21",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-22",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-23",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     },
     {
       "alertId": "kc-24",
       "action": "record",
       "confidence": 0,
-      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음"
     }
   ],
   "counts": {
     "block": 8,
-    "alert": 4,
-    "record": 12
+    "alert": 8,
+    "record": 8
   }
 }

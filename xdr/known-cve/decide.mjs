@@ -50,8 +50,14 @@ function requestSignals(alert) {
   return [d.useragent, d.url].map((v) => String(v ?? '')).join(' ');
 }
 
+// 애매한 시도와 정상을 가르는 경보 수준 경계.
+// Wazuh 규칙 수준(rule.level)은 경보의 실제 위험도 신호다. 취약점을 떠보거나 점검 도구 흔적이
+// 섞인 애매한 시도는 수준이 올라가 있고(5 이상), 평범한 조회·로그인·정적 파일은 그 아래(2~3)다.
+const AMBIGUOUS_LEVEL = 5;
+
 export function decide(alert) {
   const signal = requestSignals(alert);
+  const level = Number(alert?.rule?.level ?? 0);
 
   // 1) 실제 원격 조회 구문이 요청에 들어 있으면 형태가 뚜렷한 악용 → block.
   if (EXPLOIT_RE.test(signal)) {
@@ -62,8 +68,9 @@ export function decide(alert) {
     };
   }
 
-  // 2) 구문은 없지만 취약점 이름·jndi 단어·잘린 형태가 요청에 보이면 애매한 시도 → alert.
-  if (NAME_RE.test(signal)) {
+  // 2) 악용 구문은 없지만 경보 수준이 애매 구간 이상이면(취약점 이름·jndi 단어·점검 도구 흔적 등
+  //    Wazuh 가 위험으로 올린 경우) 애매한 시도 → alert. 단어 하나로만 판단하지 않는다.
+  if (level >= AMBIGUOUS_LEVEL) {
     return {
       action: 'alert',
       confidence: 0.6,
@@ -71,6 +78,6 @@ export function decide(alert) {
     };
   }
 
-  // 3) 그 밖은 정상 이벤트 → record.
-  return { action: 'record', confidence: 0, reason: '요청 신호에 알려진 취약점 악용 흔적 없음' };
+  // 3) 그 밖(평범한 조회·로그인·정적 파일, 낮은 수준)은 정상 이벤트 → record.
+  return { action: 'record', confidence: 0, reason: '요청 신호에 알려진 취약점 악용 흔적 없고 경보 수준도 낮음' };
 }
