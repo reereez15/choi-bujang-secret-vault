@@ -5,151 +5,151 @@
     {
       "alertId": "kc-01",
       "action": "block",
-      "confidence": 0.9,
-      "reason": "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-02",
       "action": "block",
-      "confidence": 0.9,
-      "reason": "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-03",
       "action": "block",
-      "confidence": 0.91,
-      "reason": "같은 주소의 원격 조회 구문 반복(T1190, CVE-2021-44228)"
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-04",
-      "action": "alert",
-      "confidence": 0.55,
-      "reason": "외부 공개 앱 악용 표시(T1190)에 높은 경보 수준이나 구문 패턴 표기는 뚜렷하지 않음"
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-05",
       "action": "block",
-      "confidence": 0.9,
-      "reason": "알려진 취약점 점검 도구의 흔적과 악용 구문 동반(T1190, CVE-2021-44228)"
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-06",
       "action": "block",
-      "confidence": 0.93,
-      "reason": "같은 주소의 원격 조회 구문 반복(T1190, CVE-2021-44228)"
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-07",
-      "action": "alert",
-      "confidence": 0.55,
-      "reason": "외부 공개 앱 악용 표시(T1190)에 높은 경보 수준이나 구문 패턴 표기는 뚜렷하지 않음"
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-08",
-      "action": "alert",
-      "confidence": 0.55,
-      "reason": "외부 공개 앱 악용 표시(T1190)에 높은 경보 수준이나 구문 패턴 표기는 뚜렷하지 않음"
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-09",
-      "action": "record",
-      "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-10",
-      "action": "record",
-      "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-11",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-12",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-13",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-14",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-15",
-      "action": "record",
-      "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-16",
-      "action": "record",
-      "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "악용 구문 없이 취약점 이름·jndi 단어만 등장(T1190, CVE-2021-44228)"
     },
     {
       "alertId": "kc-17",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-18",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-19",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-20",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-21",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-22",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-23",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     },
     {
       "alertId": "kc-24",
       "action": "record",
       "confidence": 0,
-      "reason": "일치하는 알려진 취약점 악용 패턴 없음"
+      "reason": "요청 신호에 알려진 취약점 악용 흔적 없음"
     }
   ],
   "counts": {
-    "block": 5,
-    "alert": 3,
-    "record": 16
+    "block": 8,
+    "alert": 4,
+    "record": 12
   }
 }

@@ -13,10 +13,10 @@
         "kc-02"
       ],
       "reasons": [
-        "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)",
-        "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)",
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
       ],
-      "maxConfidence": 0.9
+      "maxConfidence": 0.95
     },
     {
       "ruleId": "xdr.known-cve.deny",
@@ -27,9 +27,22 @@
         "kc-03"
       ],
       "reasons": [
-        "같은 주소의 원격 조회 구문 반복(T1190, CVE-2021-44228)"
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
       ],
-      "maxConfidence": 0.91
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "192.0.2.16",
+      "expiresAt": "2026-09-27T02:04:22.000Z",
+      "alertIds": [
+        "kc-04"
+      ],
+      "reasons": [
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.95
     },
     {
       "ruleId": "xdr.known-cve.deny",
@@ -40,9 +53,9 @@
         "kc-05"
       ],
       "reasons": [
-        "알려진 취약점 점검 도구의 흔적과 악용 구문 동반(T1190, CVE-2021-44228)"
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
       ],
-      "maxConfidence": 0.9
+      "maxConfidence": 0.95
     },
     {
       "ruleId": "xdr.known-cve.deny",
@@ -53,9 +66,35 @@
         "kc-06"
       ],
       "reasons": [
-        "같은 주소의 원격 조회 구문 반복(T1190, CVE-2021-44228)"
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
       ],
-      "maxConfidence": 0.93
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "192.0.2.24",
+      "expiresAt": "2026-09-27T05:06:15.000Z",
+      "alertIds": [
+        "kc-07"
+      ],
+      "reasons": [
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "203.0.113.31",
+      "expiresAt": "2026-09-27T06:19:03.000Z",
+      "alertIds": [
+        "kc-08"
+      ],
+      "reasons": [
+        "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.95
     }
   ],
   "skipped": []

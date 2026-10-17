@@ -1,44 +1,32 @@
 {
   "schema": "aleph.xdr.patterns.v1",
   "moduleKey": "known-cve",
-  "source": "MITRE ATT&CK T1190 Exploit Public-Facing Application (https://attack.mitre.org/techniques/T1190/), CVE-2021-44228 Log4Shell (https://nvd.nist.gov/vuln/detail/CVE-2021-44228)",
+  "source": "CVE-2021-44228 Log4Shell (https://nvd.nist.gov/vuln/detail/CVE-2021-44228), MITRE ATT&CK T1190 Exploit Public-Facing Application (https://attack.mitre.org/techniques/T1190/)",
   "patterns": [
     {
-      "name": "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)",
+      "name": "요청 머리글·주소 인자 안의 원격 조회 구문(jndi 형태)",
       "technique": "T1190",
       "weakness": "CVE-2021-44228",
       "match": {
-        "description": "경보 설명에 CVE-2021-44228 형태 요청과 원격 조회 구문(머리글·주소 인자)이 함께 있다. 'jndi 라는 단어만', '중괄호만', '잘린 구문', '이름만 검색'은 맞추지 않는다.",
-        "descriptionAll": ["CVE-2021-44228 형태 요청"],
-        "descriptionAny": ["머리글에 원격 조회 구문", "주소 인자에 원격 조회 구문", "같은 CVE-2021-44228 표기", "그대로 있습니다", "머리글과 주소에 같이"],
-        "descriptionNone": ["단어만", "글자만", "구문은 없", "중괄호가 한 번", "잘린", "이름만", "비슷한 수업용"]
+        "signal": "경보의 실제 요청 신호(data.useragent, data.url)에 ${jndi:...} 형태의 원격 조회 구문이 들어 있다. 설명 문구가 아니라 요청 값에서 구문 자체를 찾는다.",
+        "fields": ["data.useragent", "data.url"],
+        "exploitRegex": "\\$\\{jndi:",
+        "action": "block"
       },
-      "evidence": "CVE-2021-44228(Log4Shell): 요청 머리글·인자에 ${jndi:ldap://...} 형태의 원격 조회 구문을 넣어 취약한 Log4j가 외부 주소에서 코드를 끌어오게 만드는 것이 대표적 악용 방식이다."
+      "evidence": "CVE-2021-44228(Log4Shell): 요청 머리글·인자에 ${jndi:ldap://...} 형태의 원격 조회 구문을 넣어 취약한 Log4j가 외부 주소에서 코드를 끌어오게 만드는 것이 대표적 악용 방식이다. 구문이 실제로 들어온 요청은 형태가 뚜렷한 악용이다."
     },
     {
-      "name": "같은 주소의 원격 조회 구문 반복",
+      "name": "악용 구문 없이 취약점 이름·jndi 단어만 등장",
       "technique": "T1190",
       "weakness": "CVE-2021-44228",
       "match": {
-        "description": "같은 출발 주소에서 원격 조회 구문이 여러 번 반복된다. 반복 횟수는 data.count(문자열이라 숫자로 바꿔 비교)로 본다. 한 번뿐이면 이 패턴으로 치지 않는다.",
-        "descriptionAny": ["번 반복됐습니다", "번 들어왔습니다"],
-        "countField": "data.count",
-        "strongAtLeast": 5,
-        "weakAtLeast": 2
+        "signal": "요청 값에 원격 조회 구문은 없지만 'CVE-2021-44228' 이름이나 'jndi' 단어, 잘린 조회 형태가 검색어·경로에 나타난다. 취약점을 떠보거나 자료를 찾는 정도의 애매한 시도로 본다.",
+        "fields": ["data.useragent", "data.url"],
+        "nameRegex": "(?i)cve-2021-44228|(?i)jndi|lookup-fragment",
+        "requireNoExploit": true,
+        "action": "alert"
       },
-      "evidence": "MITRE ATT&CK T1190: 공개된 웹 앱에 같은 악용 요청을 자동화 도구로 반복해 보내 성공 가능성을 높이는 것이 알려진 공격 전개 방식이다."
-    },
-    {
-      "name": "알려진 취약점 점검 도구의 흔적과 악용 구문 동반",
-      "technique": "T1190",
-      "weakness": "CVE-2021-44228",
-      "match": {
-        "description": "알려진 취약점 점검 흔적이 CVE-2021-44228 형태 악용 구문과 함께 나타난다. 점검 도구 이름만 있거나 수업용 프로그램 이름만 있는 경우는 맞추지 않는다.",
-        "descriptionAll": ["알려진 취약점 점검 흔적"],
-        "descriptionAny": ["CVE-2021-44228 형태가 함께"],
-        "descriptionNone": ["비슷한 수업용", "이름이 로그에", "이름 검색"]
-      },
-      "evidence": "MITRE ATT&CK T1190: 공격자는 악용 전에 nuclei·nikto 같은 취약점 점검 도구로 대상을 훑고, 그 흔적이 실제 악용 구문과 함께 관측되면 표적 악용 정황으로 본다."
+      "evidence": "MITRE ATT&CK T1190: 실제 악용 구문 없이 취약점 이름만 조회하거나 jndi 단어만 흘리는 것은 정찰·시험 단계일 수 있어 차단까지 하지 않고 사람이 보도록 알림만 올린다."
     }
   ]
 }
