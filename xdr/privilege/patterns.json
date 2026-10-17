@@ -1,0 +1,27 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "privilege",
+  "source": "MITRE ATT&CK T1068 Exploitation for Privilege Escalation (https://attack.mitre.org/techniques/T1068/), T1078 Valid Accounts (https://attack.mitre.org/techniques/T1078/)",
+  "patterns": [
+    {
+      "name": "관리자 그룹 추가와 곧바로 이어진 권한 사용",
+      "technique": "T1078",
+      "match": {
+        "signal": "평범한 계정이 관리자 그룹에 들어가고, 원격·처음 보는 주소이거나 곧바로 관리자 명령을 실행한다. 과제·수업용 그룹 추가나 멤버만 생긴 새 로컬 그룹은 제외한다.",
+        "descriptionAny": ["원격 주소에서 관리자 그룹에 추가", "관리자 그룹에 들어가고 곧바로 권한", "관리자 그룹 추가와 명령 실행이 같이", "관리자 그룹에 추가됐습니다", "다시 관리자로 들어왔습니다"],
+        "action": "block"
+      },
+      "evidence": "MITRE ATT&CK T1078: 공격자는 탈취·생성한 정상 계정을 관리자 그룹에 넣어 합법적 권한으로 위장한 뒤 곧바로 관리 작업을 수행한다. 원격·비업무 시각의 관리자 그룹 추가는 대표적 계정 도용 신호다."
+    },
+    {
+      "name": "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경",
+      "technique": "T1068",
+      "match": {
+        "signal": "처음 보는 주소나 업무처럼 보이지 않는 시각에 관리자 명령 실행·세션 권한 상승·다른 계정 권한 사용이 일어난다. 평소 주소의 단발 관리자 명령·실패·취소는 제외한다.",
+        "descriptionAny": ["처음 보는 주소에서 관리자 명령", "관리자 권한으로 바뀌었고 요청 주소는 처음", "다른 계정의 권한으로 관리자 명령", "관리자가 된 user01 이 관리자 명령을 실행"],
+        "action": "block"
+      },
+      "evidence": "MITRE ATT&CK T1068: 취약점 악용으로 권한을 올린 공격자는 낯선 주소·비업무 시각에 관리자 명령을 실행하거나 세션 권한을 상승시켜 통제권을 확보한다."
+    }
+  ]
+}

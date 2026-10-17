@@ -1,0 +1,167 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "privilege",
+  "decisions": [
+    {
+      "alertId": "pv-01",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+    },
+    {
+      "alertId": "pv-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+    },
+    {
+      "alertId": "pv-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+    },
+    {
+      "alertId": "pv-04",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+    },
+    {
+      "alertId": "pv-05",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+    },
+    {
+      "alertId": "pv-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+    },
+    {
+      "alertId": "pv-07",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+    },
+    {
+      "alertId": "pv-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+    },
+    {
+      "alertId": "pv-09",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+    },
+    {
+      "alertId": "pv-10",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-11",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-12",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-13",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-14",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-15",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-16",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-17",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "권한 관련 변화가 있으나 관리자 그룹 도용·낯선 주소 근거가 뚜렷하지 않음(T1068/T1078)"
+    },
+    {
+      "alertId": "pv-18",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-19",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-20",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-25",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    },
+    {
+      "alertId": "pv-26",
+      "action": "record",
+      "confidence": 0,
+      "reason": "로그인·조회·평소 권한 사용 등 정상 이벤트"
+    }
+  ],
+  "counts": {
+    "block": 9,
+    "alert": 8,
+    "record": 9
+  }
+}

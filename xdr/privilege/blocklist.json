@@ -1,0 +1,114 @@
+{
+  "schema": "aleph.xdr.blocklist.v1",
+  "moduleKey": "privilege",
+  "note": "판정기 요청 계약에 출발 주소가 없어 src/decider.mjs 에는 연결하지 않은 거부 규칙 후보입니다.",
+  "rules": [
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "203.0.113.11",
+      "expiresAt": "2026-09-27T01:15:40.000Z",
+      "alertIds": [
+        "pv-01",
+        "pv-02"
+      ],
+      "reasons": [
+        "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)",
+        "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "198.51.100.11",
+      "expiresAt": "2026-09-27T02:03:12.000Z",
+      "alertIds": [
+        "pv-03"
+      ],
+      "reasons": [
+        "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "192.0.2.11",
+      "expiresAt": "2026-09-27T02:19:08.000Z",
+      "alertIds": [
+        "pv-04"
+      ],
+      "reasons": [
+        "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "203.0.113.17",
+      "expiresAt": "2026-09-27T03:06:21.000Z",
+      "alertIds": [
+        "pv-05"
+      ],
+      "reasons": [
+        "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "198.51.100.17",
+      "expiresAt": "2026-09-27T05:08:02.000Z",
+      "alertIds": [
+        "pv-06"
+      ],
+      "reasons": [
+        "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "192.0.2.17",
+      "expiresAt": "2026-09-27T06:16:29.000Z",
+      "alertIds": [
+        "pv-07"
+      ],
+      "reasons": [
+        "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "203.0.113.27",
+      "expiresAt": "2026-09-27T07:02:18.000Z",
+      "alertIds": [
+        "pv-08"
+      ],
+      "reasons": [
+        "처음 보는 주소·비업무 시각의 관리자 명령/권한 변경(T1068)"
+      ],
+      "maxConfidence": 0.95
+    },
+    {
+      "ruleId": "xdr.privilege.deny",
+      "action": "deny",
+      "srcip": "198.51.100.27",
+      "expiresAt": "2026-09-27T07:33:07.000Z",
+      "alertIds": [
+        "pv-09"
+      ],
+      "reasons": [
+        "관리자 그룹 추가와 곧바로 이어진 권한 사용(T1078)"
+      ],
+      "maxConfidence": 0.95
+    }
+  ],
+  "skipped": []
+}
