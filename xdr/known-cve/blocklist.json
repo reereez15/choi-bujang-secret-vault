@@ -1,0 +1,62 @@
+{
+  "schema": "aleph.xdr.blocklist.v1",
+  "moduleKey": "known-cve",
+  "note": "판정기 요청 계약에 출발 주소가 없어 src/decider.mjs 에는 연결하지 않은 거부 규칙 후보입니다.",
+  "rules": [
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "203.0.113.10",
+      "expiresAt": "2026-09-27T01:14:18.000Z",
+      "alertIds": [
+        "kc-01",
+        "kc-02"
+      ],
+      "reasons": [
+        "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)",
+        "요청 머리글·인자 안의 원격 조회 구문(jndi 형태)(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.9
+    },
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "198.51.100.16",
+      "expiresAt": "2026-09-27T01:17:06.000Z",
+      "alertIds": [
+        "kc-03"
+      ],
+      "reasons": [
+        "같은 주소의 원격 조회 구문 반복(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.91
+    },
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "203.0.113.24",
+      "expiresAt": "2026-09-27T02:21:09.000Z",
+      "alertIds": [
+        "kc-05"
+      ],
+      "reasons": [
+        "알려진 취약점 점검 도구의 흔적과 악용 구문 동반(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.9
+    },
+    {
+      "ruleId": "xdr.known-cve.deny",
+      "action": "deny",
+      "srcip": "198.51.100.24",
+      "expiresAt": "2026-09-27T03:08:41.000Z",
+      "alertIds": [
+        "kc-06"
+      ],
+      "reasons": [
+        "같은 주소의 원격 조회 구문 반복(T1190, CVE-2021-44228)"
+      ],
+      "maxConfidence": 0.93
+    }
+  ],
+  "skipped": []
+}
