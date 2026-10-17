@@ -1,0 +1,191 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "exfiltration",
+  "decisions": [
+    {
+      "alertId": "ex-01",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 목적지로 대용량·대량 자료 전송(T1048)"
+    },
+    {
+      "alertId": "ex-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 목적지로 대용량·대량 자료 전송(T1048)"
+    },
+    {
+      "alertId": "ex-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "같은 목적지로 대용량 전송 반복·업무 밖 연속 반출(T1041)"
+    },
+    {
+      "alertId": "ex-04",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "같은 목적지로 대용량 전송 반복·업무 밖 연속 반출(T1041)"
+    },
+    {
+      "alertId": "ex-05",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 목적지로 대용량·대량 자료 전송(T1048)"
+    },
+    {
+      "alertId": "ex-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "같은 목적지로 대용량 전송 반복·업무 밖 연속 반출(T1041)"
+    },
+    {
+      "alertId": "ex-07",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 목적지로 대용량·대량 자료 전송(T1048)"
+    },
+    {
+      "alertId": "ex-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 목적지로 대용량·대량 자료 전송(T1048)"
+    },
+    {
+      "alertId": "ex-09",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "같은 목적지로 대용량 전송 반복·업무 밖 연속 반출(T1041)"
+    },
+    {
+      "alertId": "ex-10",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 목적지로 대용량·대량 자료 전송(T1048)"
+    },
+    {
+      "alertId": "ex-11",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-12",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-13",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-14",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-15",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-16",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-17",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-18",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-19",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-20",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소와 다른 전송이 있으나 처음 보는 목적지·대용량·반복 근거가 뚜렷하지 않음(T1041/T1048)"
+    },
+    {
+      "alertId": "ex-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-25",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-26",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-27",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-28",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-29",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    },
+    {
+      "alertId": "ex-30",
+      "action": "record",
+      "confidence": 0,
+      "reason": "소량 조회·평소 목적지 동기화 등 정상 이벤트"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 10,
+    "record": 10
+  }
+}
