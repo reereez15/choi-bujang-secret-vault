@@ -1,0 +1,155 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "persistence",
+  "decisions": [
+    {
+      "alertId": "ps-01",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "서명 없는 새 서비스가 임시 폴더를 가리킴(T1543)"
+    },
+    {
+      "alertId": "ps-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 예약 작업이 임시 폴더 프로그램을 실행(T1053)"
+    },
+    {
+      "alertId": "ps-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "시작 폴더·시작 항목에 평소 목록에 없는 프로그램 추가(T1543)"
+    },
+    {
+      "alertId": "ps-04",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "서명 없는 새 서비스가 임시 폴더를 가리킴(T1543)"
+    },
+    {
+      "alertId": "ps-05",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "처음 보는 예약 작업이 임시 폴더 프로그램을 실행(T1053)"
+    },
+    {
+      "alertId": "ps-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "서명 없는 새 서비스가 임시 폴더를 가리킴(T1543)"
+    },
+    {
+      "alertId": "ps-07",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "시작 폴더·시작 항목에 평소 목록에 없는 프로그램 추가(T1543)"
+    },
+    {
+      "alertId": "ps-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "서명 없는 새 서비스가 임시 폴더를 가리킴(T1543)"
+    },
+    {
+      "alertId": "ps-09",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-10",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-11",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-12",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-13",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-14",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-15",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-16",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "평소 목록에 없는 지속성 항목이나 서명·실행 근거가 뚜렷하지 않음(T1543/T1053)"
+    },
+    {
+      "alertId": "ps-17",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-18",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-19",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-20",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    },
+    {
+      "alertId": "ps-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "평소 목록·서명된 기존 항목 등 정상 이벤트"
+    }
+  ],
+  "counts": {
+    "block": 8,
+    "alert": 8,
+    "record": 8
+  }
+}

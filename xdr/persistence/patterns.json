@@ -1,0 +1,37 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "persistence",
+  "source": "MITRE ATT&CK T1543 Create or Modify System Process (https://attack.mitre.org/techniques/T1543/), T1053 Scheduled Task/Job (https://attack.mitre.org/techniques/T1053/)",
+  "patterns": [
+    {
+      "name": "서명 없는 새 서비스가 임시 폴더를 가리킴",
+      "technique": "T1543",
+      "match": {
+        "signal": "경보 설명에 '서명 없는' 새 서비스/서비스 실행 파일 변경과, 임시 폴더·평소 목록에 없는 항목이 함께 나타난다. 수업 도구가 서명된 채 실행되는 정상 경보는 제외한다.",
+        "descriptionAny": ["서명 없는 새 서비스", "서비스 실행 파일이 바뀌었고 서명이 없", "평소 목록에 없는 서비스가 다시 켜도 남", "서명 없는 서비스 등록"],
+        "action": "block"
+      },
+      "evidence": "MITRE ATT&CK T1543: 공격자는 서명 없는 실행 파일을 가리키는 새 서비스를 등록해 재부팅 뒤에도 남는 지속성을 확보한다. 임시 폴더를 가리키는 서명 없는 서비스는 대표적 악성 지속성 신호다."
+    },
+    {
+      "name": "처음 보는 예약 작업이 임시 폴더 프로그램을 실행",
+      "technique": "T1053",
+      "match": {
+        "signal": "경보 설명에 '처음 보는/임의 문자열' 예약 작업이 임시 폴더 프로그램을 수업 시간 밖에 실행한다는 신호가 있다. 수업 시간 정상 예약·기존 예약은 제외한다.",
+        "descriptionAny": ["처음 보는 예약 작업이 임시 폴더", "예약 작업 이름이 임의 문자열이고 실행 파일이 임시 폴더"],
+        "action": "block"
+      },
+      "evidence": "MITRE ATT&CK T1053: 공격자는 임의 이름의 예약 작업을 만들어 임시 폴더의 프로그램을 주기·비업무 시간에 실행시켜 지속성과 은닉을 얻는다."
+    },
+    {
+      "name": "시작 폴더·시작 항목에 평소 목록에 없는 프로그램 추가",
+      "technique": "T1543",
+      "match": {
+        "signal": "경보 설명에 시작 폴더/시작 프로그램에 평소 목록에 없는 프로그램이 추가됐다는 신호가 있다. 또는 시작 항목과 예약 작업이 같은 임시 파일을 함께 가리킨다.",
+        "descriptionAny": ["시작 폴더에 평소 목록에 없는 프로그램", "시작 프로그램과 예약 작업이 같은 임시 파일"],
+        "action": "block"
+      },
+      "evidence": "MITRE ATT&CK T1543: 시작 폴더·시작 항목(Run 키)에 프로그램을 추가하면 로그인 때마다 자동 실행돼 지속성이 생긴다. 평소 목록에 없는 항목이 임시 파일을 가리키면 악성 지속성으로 본다."
+    }
+  ]
+}
