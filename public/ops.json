@@ -2,7 +2,7 @@
   "schema": "aleph.ops.summary.v1",
   "generatedFrom": "artifacts/submission.json",
   "step": 12,
-  "commit": "8f38669b572f3d5106f01f50cdc107eba2449a0f",
+  "commit": "bfb01ad0ef5535989006a475df4b9543e34af28e",
   "repoUrl": "https://github.com/reereez15/choi-bujang-secret-vault",
   "policyRules": [
     "device_registered",
@@ -82,7 +82,7 @@
     },
     {
       "id": "api_key_not_exposed",
-      "expected": "GET /api/my/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음",
+      "expected": "/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음",
       "observed": "HTTP 401",
       "status": "measured"
     },
@@ -159,5 +159,5 @@
     "notRun": 14
   },
   "engine": "ALEPH SDP 엔진",
-  "generatedAt": "2026-10-16T00:27:06.582Z"
+  "generatedAt": "2026-10-15T14:02:16.598Z"
 }

@@ -19,19 +19,8 @@ function publicApp(config) {
   return app;
 }
 
-// 요청마다 고유한 requestKey를 만든다. 심판이 사례(caseId)와 요청을 매칭할 수 있게 한다.
-function newRequestKey() {
-  const id = globalThis.crypto?.randomUUID?.();
-  if (id) return id;
-  const hex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20)}`;
-}
-
-// fetch 호출에 alephEvidence(caseId, requestKey)를 심는다. 심판 실행기가 이 값을 읽어
-// 어느 점검(caseId)의 요청인지 기록한다. 요청 헤더·URL에는 넣지 않는다.
-const request = (app, path, { method = 'GET', headers, body, caseId } = {}) => fetch(new URL(path, app), {
+const request = (app, path, { method = 'GET', headers, body } = {}) => fetch(new URL(path, app), {
   method, headers, body, redirect: 'error', signal: AbortSignal.timeout(10000),
-  alephEvidence: { caseId: caseId ?? 'unknown', requestKey: newRequestKey() },
 });
 
 async function readBody(response) {
@@ -72,7 +61,7 @@ async function attempt(app, path, options) {
   }
   let response;
   try {
-    response = await request(app, path, options);  // options.caseId가 alephEvidence로 전달된다
+    response = await request(app, path, options);
   } catch (error) {
     return { unreached: `요청이 배포 서버에 닿지 못했습니다 (${String(error?.name ?? 'Error').slice(0, 40)})` };
   }
@@ -83,8 +72,7 @@ async function attempt(app, path, options) {
   }
   const { text, data } = await readBody(response);
   const headerText = headerPairs.map(([name, value]) => `${name}: ${value}`).join('\n');
-  // 보낸 요청(메서드·경로)을 함께 돌려준다. 심판이 요청 기록과 대조할 수 있게 observed에 적는다.
-  return { response, text, data, headerText, sent: `${method} ${path}` };
+  return { response, text, data, headerText };
 }
 const notReached = () => 'not_run';  // 요청을 보내지 못한 점검은 상태를 지어내지 않고 not_run으로만 적는다.
 const noteCount = (data) => (Array.isArray(data) ? data.length
@@ -94,11 +82,13 @@ async function runStepThree(config, app) {
   const attempts = [];
   const randomId = randomUUID();
   const refused = (id, expected, path, options) => attempts.push((async () => {
-    const result = await attempt(app, path, { ...options, caseId: id });
+    const result = await attempt(app, path, options);
     if (result.unreached) return { attackId: id, expected, observed: notReached(result) };
-    const { response } = result;
-    // 요청에 인증 헤더를 붙였는지 표시해, 익명 요청과 위조 토큰 요청을 observed에서 구별한다.
-    return { attackId: id, expected, observed: `HTTP ${response.status}` };
+    const { response, data } = result;
+    const leaked = noteCount(data) > 0 || Array.isArray(data) || typeof data?.title === 'string';
+    const code = typeof data?.error === 'string' && /^[a-z_]{1,40}$/u.test(data.error) ? `, 응답 코드 ${data.error}` : '';
+    return { attackId: id, expected,
+      observed: `HTTP ${response.status}` };
   })());
   const json = { 'content-type': 'application/json' };
 
@@ -150,7 +140,7 @@ async function runStepThree(config, app) {
     { headers: { authorization: `Bearer ${forged}`, 'x-role': 'admin', 'x-user-id': randomUUID() } });
 
   const results = await Promise.all(attempts);
-  const staticResult = await attempt(app, '/data.json', { caseId: 'static_data_json_read' });
+  const staticResult = await attempt(app, '/data.json');
   if (staticResult.unreached) {
     results.push({ attackId: 'static_data_json_read', expected: '공개 /data.json에 가상 메모가 보이지 않음', observed: notReached(staticResult) });
   } else {
@@ -161,8 +151,8 @@ async function runStepThree(config, app) {
   }
 
   // 위 응답 본문과 헤더에 서버 전용 키로 보이는 값이 있었는지 한 번 더 본다.
-  const probe = await attempt(app, '/api/my/notes', { caseId: 'api_key_not_exposed' });
-  results.push({ attackId: 'api_key_not_exposed', expected: 'GET /api/my/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
+  const probe = await attempt(app, '/api/my/notes');
+  results.push({ attackId: 'api_key_not_exposed', expected: '/api/notes 응답 본문과 헤더에 서버 전용 키로 보이는 값이 없음',
     observed: probe.unreached ? 'not_run'
       : `HTTP ${probe.response.status}${(KEY_SHAPE.test(probe.text) || KEY_SHAPE.test(probe.headerText)) ? '; keyLeaked=true' : ''}` });
 
@@ -173,7 +163,7 @@ async function runStepThree(config, app) {
     results.push({ attackId: 'normal_login_read', expected: normalExpected,
       observed: 'not_run' });
   } else {
-    const normal = await attempt(app, '/api/my/notes', { headers: { authorization: `Bearer ${token}` }, caseId: 'normal_login_read' });
+    const normal = await attempt(app, '/api/my/notes', { headers: { authorization: `Bearer ${token}` } });
     results.push({ attackId: 'normal_login_read', expected: normalExpected,
       observed: normal.unreached ? 'not_run'
         : `HTTP ${normal.response.status}${normal.response.ok && Array.isArray(normal.data) ? `; notes=${normal.data.length}` : ''}` });
@@ -205,7 +195,7 @@ async function runOwnerChecks(app) {
   const json = { 'content-type': 'application/json' };
   const noteId = randomUUID();
   const title = 'attack-check 임시 메모';
-  const created = await attempt(app, '/api/my/notes', { method: 'POST', caseId: 'owner_setup', headers: as(tokenA, json),
+  const created = await attempt(app, '/api/my/notes', { method: 'POST', headers: as(tokenA, json),
     body: JSON.stringify({ id: noteId, title, body: 'owner check' }) });
   if (created.unreached) return skip();
   if (created.response.status !== 201) {
@@ -219,18 +209,18 @@ async function runOwnerChecks(app) {
   };
   const observed = {};
   try {
-    observed.owner_cross_read = refusal(await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenB), caseId: 'owner_cross_read' }));
-    observed.owner_cross_update = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', caseId: 'owner_cross_update', headers: as(tokenB, json),
+    observed.owner_cross_read = refusal(await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenB) }));
+    observed.owner_cross_update = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenB, json),
       body: JSON.stringify({ title: 'attack-check 탈취', body: 'x' }) }));
-    observed.owner_cross_delete = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenB), caseId: 'owner_cross_delete' }));
-    const list = await attempt(app, '/api/my/notes', { headers: as(tokenB), caseId: 'owner_list_isolation' });
+    observed.owner_cross_delete = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'DELETE', headers: as(tokenB) }));
+    const list = await attempt(app, '/api/my/notes', { headers: as(tokenB) });
     observed.owner_list_isolation = list.unreached ? notReached(list)
       : list.response.status === 200 && Array.isArray(list.data) && !list.data.some((note) => note?.id === noteId)
         ? `목록에 A의 메모가 없음 (HTTP 200, 메모 ${list.data.length}건)`
         : `목록에 A의 메모가 보이거나 목록을 받지 못함 (HTTP ${list.response.status})`;
-    observed.owner_change_rejected = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', caseId: 'owner_change_rejected', headers: as(tokenA, json),
+    observed.owner_change_rejected = refusal(await attempt(app, `/api/notes/${noteId}`, { method: 'PUT', headers: as(tokenA, json),
       body: JSON.stringify({ title, body: 'owner check', owner_id: randomUUID() }) }));
-    const intact = await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenA), caseId: 'owner_note_intact' });
+    const intact = await attempt(app, `/api/notes/${noteId}`, { headers: as(tokenA) });
     observed.owner_note_intact = intact.unreached ? notReached(intact)
       : intact.response.status === 200 && intact.data?.title === title
         ? 'A는 자기 메모를 원래 제목 그대로 읽음 (HTTP 200)'
@@ -277,7 +267,7 @@ async function runOriginalApiChecks(config) {
   const describe = (item, result) => (result.unreached ? 'not_run'
     : `HTTP ${item.status}${item.code ? `; code=${item.code}` : ''}${item.rows ? `; rows=${item.rows}` : ''}`);
 
-  const read = await attempt(original, url, { headers: { apikey: key }, caseId: 'original_api_anon_read' });
+  const read = await attempt(original, url, { headers: { apikey: key } });
   const insert = await attempt(original, url, { method: 'POST', headers: { apikey: key, ...json, prefer: 'return=minimal' }, body: '{}' });
   const target = `${url}?id=eq.${randomUUID()}`;
   const patch = await attempt(original, target, { method: 'PATCH', headers: { apikey: key, ...json, prefer: 'return=minimal' },

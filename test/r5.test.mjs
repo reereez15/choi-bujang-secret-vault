@@ -50,7 +50,7 @@ test('first attack check reads public data.json without credentials', async () =
     assert.match(result.observed, /notesVisible=true/u);
     globalThis.fetch = async () => new Response('<html>not the data</html>', { status: 200 });
     const [failed] = await runAttackChecks(config);
-    assert.match(failed.observed, /HTTP /u);
+    assert.match(failed.observed, /^HTTP /u);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -109,9 +109,9 @@ test('step 2 attack check records what was observed without note bodies', async 
     const results = await runAttackChecks(step2);
     assert.deepEqual(results.map((item) => item.attackId),
       ['static_data_json_read', 'anonymous_api_read', 'api_key_not_exposed']);
-    assert.match(results[0].observed, /HTTP /u);
+    assert.match(results[0].observed, /^HTTP /u);
     assert.match(results[1].observed, /notes=1/u);
-    assert.match(results[2].observed, /HTTP \d+/u);
+    assert.match(results[2].observed, /^HTTP \d+/u);
     assert.ok(!JSON.stringify(results).includes('BODY_SHOULD_NOT_APPEAR'));
     globalThis.fetch = async (url) => new Response(
       JSON.stringify(new URL(String(url)).pathname === '/api/notes' ? { notes: [], leak: FAKE_KEY } : { notes: [] }),
@@ -1157,7 +1157,7 @@ test('step 5 attack check reports an open original API read, writes stay not_run
 test('step 5 attack check marks what it could not send as not run', async () => {
   const noToken = await withTokens(undefined, undefined, () => withFetch(originalServer().impl, () => runAttackChecks(step5)));
   assert.match(byId(noToken).original_api_user_read.observed, /^not_run$/u);
-  assert.match(byId(noToken).original_api_anon_read.observed, /HTTP /u);
+  assert.match(byId(noToken).original_api_anon_read.observed, /^HTTP /u);
   const blocked = await withTokens('TOKEN-A', 'TOKEN-B', () => withFetch(serverFetch({ denyHeader: true }).impl, () => runAttackChecks(step5)));
   assert.ok(blocked.every((item) => /^not_run$/u.test(item.observed)));
   const savedKey = process.env.ATTACK_CHECK_ANON_KEY;

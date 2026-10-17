@@ -81,8 +81,8 @@
 3. 빌드: `npm run build`로 `public/aleph.json` 생성. 배포는 Vercel이 `public/`을 서빙하고 `api/`를 서버 함수로 올립니다. 배포에 필요한 환경변수: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`(값은 여기 적지 않음).
 4. 점검 묶음: 토큰·키를 환경변수로 넣고 `npm run bundle` → `artifacts/submission.json`. 이어서 `npm run ops` → `public/ops.json`.
 5. 작전실 보기: 배포 후 `/ops.html`.
-6. 중지: Vercel 프로젝트에서 배포를 일시 중지하거나 삭제하고, Supabase 프로젝트도 콘솔에서 일시 중지해 침해를 멈춥니다.
-7. 복구: 멈춘 뒤 `npm run policy:diff`로 바뀔 범위를 확인하고 `npm run policy:restore -- --apply`로 안전 정책을 되돌립니다. 가상 메모 한 건은 `POST /api/restore/note`로 복원합니다.
+6. 복구(필요 시): `npm run policy:diff`로 바뀔 범위 확인 후 `npm run policy:restore -- --apply`로 안전 정책 되돌리기. 메모 한 건은 `POST /api/restore/note`.
+7. 중지: Vercel 프로젝트에서 배포를 일시 중지하거나 삭제합니다. Supabase 프로젝트도 콘솔에서 일시 중지할 수 있습니다.
 
 **12단계 확인 기록 (2026-10-14, 직접 실행한 것만 적었습니다)**
 - `test:r5` 전체 통과. `npm run ops`로 `public/ops.json` 생성, `public/ops.html`이 실측/미실행을 구분해 표시함을 확인.
